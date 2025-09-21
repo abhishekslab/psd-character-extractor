@@ -5,7 +5,8 @@ Optimizes extracted character images for web applications and VTuber systems.
 """
 
 import logging
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -14,11 +15,13 @@ logger = logging.getLogger(__name__)
 class ImageOptimizer:
     """Optimizes images for web and VTuber applications."""
 
-    def __init__(self,
-                 target_width: int = 400,
-                 target_height: int = 600,
-                 quality: int = 85,
-                 format_type: str = "PNG"):
+    def __init__(
+        self,
+        target_width: int = 400,
+        target_height: int = 600,
+        quality: int = 85,
+        format_type: str = "PNG",
+    ):
         """
         Initialize the image optimizer.
 
@@ -83,7 +86,9 @@ class ImageOptimizer:
 
         return new_width, new_height
 
-    def resize_image(self, image: Image.Image, size: Optional[Tuple[int, int]] = None) -> Image.Image:
+    def resize_image(
+        self, image: Image.Image, size: Optional[Tuple[int, int]] = None
+    ) -> Image.Image:
         """
         Resize image with high-quality resampling.
 
@@ -118,14 +123,16 @@ class ImageOptimizer:
         """
         try:
             # Convert to RGB if necessary (for JPEG output)
-            if image.mode == 'RGBA' and self.format_type == 'JPEG':
+            if image.mode == "RGBA" and self.format_type == "JPEG":
                 # Create white background for JPEG
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                background.paste(image, mask=image.split()[-1])  # Use alpha channel as mask
+                background = Image.new("RGB", image.size, (255, 255, 255))
+                background.paste(
+                    image, mask=image.split()[-1]
+                )  # Use alpha channel as mask
                 image = background
-            elif image.mode != 'RGBA' and self.format_type == 'PNG':
+            elif image.mode != "RGBA" and self.format_type == "PNG":
                 # Convert to RGBA for PNG with transparency
-                image = image.convert('RGBA')
+                image = image.convert("RGBA")
 
             # Resize image
             optimized_image = self.resize_image(image)
@@ -193,7 +200,7 @@ class ImageOptimizer:
         sheet_height = rows * img_height
 
         # Create sprite sheet
-        sprite_sheet = Image.new('RGBA', (sheet_width, sheet_height), (0, 0, 0, 0))
+        sprite_sheet = Image.new("RGBA", (sheet_width, sheet_height), (0, 0, 0, 0))
 
         # Place images in grid
         for i, (name, image) in enumerate(images.items()):
@@ -205,7 +212,9 @@ class ImageOptimizer:
 
             sprite_sheet.paste(image, (x, y))
 
-        logger.info(f"Created sprite sheet: {sheet_width}x{sheet_height} with {num_images} expressions")
+        logger.info(
+            f"Created sprite sheet: {sheet_width}x{sheet_height} with {num_images} expressions"
+        )
         return sprite_sheet
 
     def batch_optimize(self, images: dict, optimization_type: str = "web") -> dict:
@@ -222,7 +231,8 @@ class ImageOptimizer:
         optimized_images = {}
 
         optimization_func = (
-            self.optimize_for_vtuber if optimization_type == "vtuber"
+            self.optimize_for_vtuber
+            if optimization_type == "vtuber"
             else self.optimize_for_web
         )
 
@@ -234,7 +244,9 @@ class ImageOptimizer:
                 logger.error(f"Failed to optimize {name}: {e}")
                 optimized_images[name] = image  # Use original if optimization fails
 
-        logger.info(f"Batch optimized {len(optimized_images)} images ({optimization_type})")
+        logger.info(
+            f"Batch optimized {len(optimized_images)} images ({optimization_type})"
+        )
         return optimized_images
 
     def get_optimization_settings(self) -> dict:
@@ -248,5 +260,5 @@ class ImageOptimizer:
             "target_width": self.target_width,
             "target_height": self.target_height,
             "quality": self.quality,
-            "format": self.format_type
+            "format": self.format_type,
         }

@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/abhishekslab/psd-character-extractor/schemas/avatar.schema.json",
+  "title": "Avatar Bundle Schema",
+  "description": "Schema for standardized avatar bundles from PSD Character Extractor",
+  "type": "object",
+  "required": ["images", "slots"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference"
+    },
+    "meta": {
+      "type": "object",
+      "description": "Avatar metadata",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Avatar name"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source PSD filename"
+        },
+        "generator": {
+          "type": "string",
+          "description": "Tool and version that generated this bundle"
+        }
+      },
+      "required": ["name", "source", "generator"]
+    },
+    "images": {
+      "type": "object",
+      "description": "Image assets for the avatar",
+      "properties": {
+        "atlas": {
+          "type": "string",
+          "description": "Atlas image filename"
+        },
+        "slices": {
+          "type": "object",
+          "description": "UV coordinates for each sprite slice",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "X coordinate in atlas"
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Y coordinate in atlas"
+              },
+              "w": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Width of slice"
+              },
+              "h": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Height of slice"
+              }
+            },
+            "required": ["x", "y", "w", "h"]
+          }
+        }
+      },
+      "required": ["atlas", "slices"]
+    },
+    "slots": {
+      "type": "object",
+      "description": "Avatar slots that can hold different states",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Slot definition",
+        "properties": {
+          "states": {
+            "type": "array",
+            "description": "Available states for this slot",
+            "items": {
+              "type": "string",
+              "enum": ["open", "half", "closed", "happy", "sad", "angry", "wink"]
+            }
+          },
+          "visemes": {
+            "type": "array",
+            "description": "Available visemes for mouth slots",
+            "items": {
+              "type": "string",
+              "enum": ["SIL", "AI", "E", "U", "O", "FV", "L", "WQ", "MBP", "REST"]
+            }
+          },
+          "emotions": {
+            "type": "array",
+            "description": "Available emotions for this slot",
+            "items": {
+              "type": "string",
+              "enum": ["neutral", "smile", "frown", "joy", "sad", "angry"]
+            }
+          },
+          "shapes": {
+            "type": "array",
+            "description": "Available shapes for brow slots",
+            "items": {
+              "type": "string",
+              "enum": ["neutral", "up", "down", "angry", "sad"]
+            }
+          }
+        },
+        "anyOf": [
+          {"required": ["states"]},
+          {"required": ["visemes"]},
+          {"required": ["emotions"]},
+          {"required": ["shapes"]}
+        ]
+      }
+    },
+    "anchors": {
+      "type": "object",
+      "description": "Named anchor points for positioning",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "description": "X coordinate of anchor"
+          },
+          "y": {
+            "type": "number",
+            "description": "Y coordinate of anchor"
+          }
+        },
+        "required": ["x", "y"]
+      }
+    }
+  }
+}

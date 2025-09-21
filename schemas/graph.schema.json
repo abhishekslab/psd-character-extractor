@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/abhishekslab/psd-character-extractor/schemas/graph.schema.json",
+  "title": "Expression Graph Schema",
+  "description": "Schema for avatar expression state machines",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference"
+    },
+    "params": {
+      "type": "object",
+      "description": "Runtime parameters for the expression graph",
+      "properties": {
+        "valence": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0,
+          "description": "Emotional valence (-1=negative, +1=positive)"
+        },
+        "arousal": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Emotional arousal (0=calm, 1=excited)"
+        },
+        "speaking": {
+          "type": "boolean",
+          "description": "Whether avatar is currently speaking"
+        },
+        "emotion": {
+          "type": "string",
+          "enum": ["neutral", "happy", "sad", "angry", "surprised", "disgusted", "fearful"],
+          "description": "Current dominant emotion"
+        }
+      },
+      "additionalProperties": true
+    },
+    "nodes": {
+      "type": "object",
+      "description": "State nodes in the expression graph",
+      "additionalProperties": {
+        "type": "object",
+        "description": "A single state node",
+        "properties": {
+          "slots": {
+            "type": "object",
+            "description": "Slot states for this node",
+            "additionalProperties": {
+              "type": "object",
+              "description": "State for a single slot",
+              "properties": {
+                "viseme": {
+                  "type": "string",
+                  "enum": ["SIL", "AI", "E", "U", "O", "FV", "L", "WQ", "MBP", "REST", "AUTO"],
+                  "description": "Viseme for mouth slots"
+                },
+                "emotion": {
+                  "type": "string",
+                  "enum": ["neutral", "smile", "frown", "joy", "sad", "angry"],
+                  "description": "Emotion for expression slots"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": ["open", "half", "closed", "happy", "sad", "angry", "wink"],
+                  "description": "State for eye slots"
+                },
+                "shape": {
+                  "type": "string",
+                  "enum": ["neutral", "up", "down", "angry", "sad"],
+                  "description": "Shape for brow slots"
+                }
+              }
+            }
+          },
+          "duration": {
+            "type": "array",
+            "description": "Duration range [min, max] in milliseconds",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": ["slots"]
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Transition edges between states",
+      "items": {
+        "type": "object",
+        "description": "A single transition edge",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Source node name"
+          },
+          "to": {
+            "type": "string",
+            "description": "Target node name"
+          },
+          "onEnter": {
+            "type": "boolean",
+            "description": "Trigger immediately on entering source state"
+          },
+          "after": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Fixed delay in milliseconds"
+              },
+              {
+                "type": "array",
+                "description": "Random delay range [min, max] in milliseconds",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            ]
+          },
+          "prob": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Probability of transition occurring"
+          },
+          "onEvent": {
+            "type": "string",
+            "description": "Event name that triggers this transition"
+          },
+          "while": {
+            "type": "string",
+            "description": "Condition that must be true for transition"
+          },
+          "cooldown": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cooldown period in milliseconds before transition can occur again"
+          }
+        },
+        "required": ["from", "to"]
+      }
+    }
+  }
+}

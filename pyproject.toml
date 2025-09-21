@@ -60,6 +60,7 @@ dependencies = [
     "click>=8.0.0",
     "colorama>=0.4.0",
     "tqdm>=4.60.0",
+    "PyYAML>=6.0.0",
 ]
 dynamic = ["version"]
 
@@ -116,6 +117,10 @@ psd-analyze = "psd_extractor.cli:analyze_command"
 psd-batch = "psd_extractor.cli:batch_command"
 psd-list-expressions = "psd_extractor.cli:list_expressions"
 psd-create-mapping = "psd_extractor.cli:create_mapping"
+psd-ingest = "psd_extractor.cli:ingest"
+psd-graph = "psd_extractor.cli:graph"
+psd-preview = "psd_extractor.cli:preview"
+psd-scan = "psd_extractor.cli:scan"
 psd-character-extractor = "psd_extractor.cli:cli"
 
 [tool.setuptools]

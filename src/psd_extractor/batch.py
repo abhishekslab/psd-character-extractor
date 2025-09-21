@@ -4,15 +4,16 @@ Batch Processor
 Handles batch processing of multiple PSD files and character extraction workflows.
 """
 
-import logging
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from tqdm import tqdm
 
-from .extractor import CharacterExtractor
 from .analyzer import PSDAnalyzer
+from .extractor import CharacterExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +21,13 @@ logger = logging.getLogger(__name__)
 class BatchProcessor:
     """Batch processor for multiple PSD files and extraction workflows."""
 
-    def __init__(self,
-                 input_dir: Optional[str] = None,
-                 output_dir: Optional[str] = None,
-                 mapping_file: Optional[str] = None,
-                 max_workers: int = 4):
+    def __init__(
+        self,
+        input_dir: Optional[str] = None,
+        output_dir: Optional[str] = None,
+        mapping_file: Optional[str] = None,
+        max_workers: int = 4,
+    ):
         """
         Initialize batch processor.
 
@@ -51,14 +54,16 @@ class BatchProcessor:
             mapping_file: Path to JSON file containing expression mapping
         """
         try:
-            with open(mapping_file, 'r', encoding='utf-8') as f:
+            with open(mapping_file, "r", encoding="utf-8") as f:
                 self.expression_mapping = json.load(f)
             logger.info(f"Loaded expression mapping from {mapping_file}")
         except Exception as e:
             logger.error(f"Failed to load expression mapping: {e}")
             raise
 
-    def save_expression_mapping(self, mapping: Dict[str, List[str]], output_file: str) -> None:
+    def save_expression_mapping(
+        self, mapping: Dict[str, List[str]], output_file: str
+    ) -> None:
         """
         Save expression mapping to JSON file.
 
@@ -67,7 +72,7 @@ class BatchProcessor:
             output_file: Path to output JSON file
         """
         try:
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(mapping, f, indent=2, ensure_ascii=False)
             logger.info(f"Saved expression mapping to {output_file}")
         except Exception as e:
@@ -93,7 +98,9 @@ class BatchProcessor:
 
         return psd_files
 
-    def analyze_batch(self, psd_files: Optional[List[Union[str, Path]]] = None) -> Dict[str, Dict]:
+    def analyze_batch(
+        self, psd_files: Optional[List[Union[str, Path]]] = None
+    ) -> Dict[str, Dict]:
         """
         Analyze multiple PSD files to understand their structure.
 
@@ -116,9 +123,11 @@ class BatchProcessor:
             }
 
             # Collect results with progress bar
-            for future in tqdm(as_completed(future_to_file),
-                             total=len(future_to_file),
-                             desc="Analyzing PSD files"):
+            for future in tqdm(
+                as_completed(future_to_file),
+                total=len(future_to_file),
+                desc="Analyzing PSD files",
+            ):
                 psd_file = future_to_file[future]
                 try:
                     result = future.result()
@@ -147,10 +156,12 @@ class BatchProcessor:
             logger.error(f"Analysis failed for {psd_path}: {e}")
             return {"error": str(e)}
 
-    def extract_batch(self,
-                     psd_files: Optional[List[Union[str, Path]]] = None,
-                     output_dir: Optional[str] = None,
-                     custom_mapping: Optional[Dict[str, List[str]]] = None) -> Dict[str, Dict]:
+    def extract_batch(
+        self,
+        psd_files: Optional[List[Union[str, Path]]] = None,
+        output_dir: Optional[str] = None,
+        custom_mapping: Optional[Dict[str, List[str]]] = None,
+    ) -> Dict[str, Dict]:
         """
         Extract expressions from multiple PSD files.
 
@@ -179,14 +190,18 @@ class BatchProcessor:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit extraction tasks
             future_to_file = {
-                executor.submit(self._extract_single_file, str(psd_file), mapping): psd_file
+                executor.submit(
+                    self._extract_single_file, str(psd_file), mapping
+                ): psd_file
                 for psd_file in psd_files
             }
 
             # Collect results with progress bar
-            for future in tqdm(as_completed(future_to_file),
-                             total=len(future_to_file),
-                             desc="Extracting characters"):
+            for future in tqdm(
+                as_completed(future_to_file),
+                total=len(future_to_file),
+                desc="Extracting characters",
+            ):
                 psd_file = future_to_file[future]
                 try:
                     result = future.result()
@@ -198,7 +213,9 @@ class BatchProcessor:
         logger.info(f"Extracted from {len(extraction_results)} PSD files")
         return extraction_results
 
-    def _extract_single_file(self, psd_path: str, mapping: Optional[Dict[str, List[str]]]) -> Dict:
+    def _extract_single_file(
+        self, psd_path: str, mapping: Optional[Dict[str, List[str]]]
+    ) -> Dict:
         """
         Extract expressions from a single PSD file.
 
@@ -219,9 +236,7 @@ class BatchProcessor:
 
             # Extract and save expressions
             saved_files = extractor.extract_and_save(
-                str(char_output_dir),
-                custom_mapping=mapping,
-                prefix=file_stem
+                str(char_output_dir), custom_mapping=mapping, prefix=file_stem
             )
 
             # Get summary
@@ -231,14 +246,16 @@ class BatchProcessor:
                 "success": True,
                 "saved_files": saved_files,
                 "summary": summary,
-                "output_dir": str(char_output_dir)
+                "output_dir": str(char_output_dir),
             }
 
         except Exception as e:
             logger.error(f"Extraction failed for {psd_path}: {e}")
             return {"success": False, "error": str(e)}
 
-    def generate_batch_report(self, results: Dict[str, Dict], output_file: Optional[str] = None) -> str:
+    def generate_batch_report(
+        self, results: Dict[str, Dict], output_file: Optional[str] = None
+    ) -> str:
         """
         Generate a comprehensive batch processing report.
 
@@ -261,14 +278,16 @@ class BatchProcessor:
             f"Failed extractions: {failed}",
             "",
             "Per-file Results:",
-            "-" * 30
+            "-" * 30,
         ]
 
         for file_path, result in results.items():
             file_name = Path(file_path).name
             if result.get("success", False):
                 saved_count = len(result.get("saved_files", {}))
-                report_lines.append(f"✓ {file_name}: {saved_count} expressions extracted")
+                report_lines.append(
+                    f"✓ {file_name}: {saved_count} expressions extracted"
+                )
             else:
                 error = result.get("error", "Unknown error")
                 report_lines.append(f"✗ {file_name}: {error}")
@@ -277,7 +296,7 @@ class BatchProcessor:
 
         if output_file:
             try:
-                with open(output_file, 'w', encoding='utf-8') as f:
+                with open(output_file, "w", encoding="utf-8") as f:
                     f.write(report_text)
                 logger.info(f"Saved batch report to {output_file}")
             except Exception as e:
@@ -285,11 +304,13 @@ class BatchProcessor:
 
         return report_text
 
-    def process_directory(self,
-                         input_dir: str,
-                         output_dir: str,
-                         mapping_file: Optional[str] = None,
-                         generate_report: bool = True) -> Dict[str, Dict]:
+    def process_directory(
+        self,
+        input_dir: str,
+        output_dir: str,
+        mapping_file: Optional[str] = None,
+        generate_report: bool = True,
+    ) -> Dict[str, Dict]:
         """
         Complete batch processing workflow for a directory.
 

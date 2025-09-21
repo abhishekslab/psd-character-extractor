@@ -6,10 +6,11 @@ Extracts character expressions from PSD files and maps them to lip sync states.
 
 import logging
 import os
-from typing import Dict, List, Optional, Union
 from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 from psd_tools import PSDImage
+
 from .analyzer import PSDAnalyzer
 from .optimizer import ImageOptimizer
 
@@ -21,13 +22,15 @@ class CharacterExtractor:
 
     # Default expression mapping for lip sync
     DEFAULT_EXPRESSION_MAPPING = {
-        'closed': ['normal', 'neutral', 'smug'],
-        'small': ['smile', 'smile 2', 'happy'],
-        'medium': ['delighted', 'annoyed', 'excited'],
-        'wide': ['shocked', 'laugh', 'surprised']
+        "closed": ["normal", "neutral", "smug"],
+        "small": ["smile", "smile 2", "happy"],
+        "medium": ["delighted", "annoyed", "excited"],
+        "wide": ["shocked", "laugh", "surprised"],
     }
 
-    def __init__(self, psd_path: str, expression_mapping: Optional[Dict[str, List[str]]] = None):
+    def __init__(
+        self, psd_path: str, expression_mapping: Optional[Dict[str, List[str]]] = None
+    ):
         """
         Initialize the character extractor.
 
@@ -93,7 +96,7 @@ class CharacterExtractor:
                 return None
 
             # Hide all expression layers first
-            if hasattr(expression_group, '_layers'):
+            if hasattr(expression_group, "_layers"):
                 for expr_layer in expression_group._layers:
                     expr_layer.visible = False
 
@@ -121,9 +124,11 @@ class CharacterExtractor:
             logger.error(f"Failed to extract expression '{expression_name}': {e}")
             return None
 
-    def extract_expressions(self,
-                          custom_mapping: Optional[Dict[str, List[str]]] = None,
-                          target_states: Optional[List[str]] = None) -> Dict[str, any]:
+    def extract_expressions(
+        self,
+        custom_mapping: Optional[Dict[str, List[str]]] = None,
+        target_states: Optional[List[str]] = None,
+    ) -> Dict[str, any]:
         """
         Extract multiple expressions mapped to lip sync states.
 
@@ -160,9 +165,13 @@ class CharacterExtractor:
                     logger.warning(f"  ✗ Failed to extract '{expression_name}'")
 
             if not extracted:
-                logger.warning(f"  ⚠ No suitable expression found for {sync_state} state")
+                logger.warning(
+                    f"  ⚠ No suitable expression found for {sync_state} state"
+                )
 
-        logger.info(f"Successfully extracted {len(extracted_expressions)}/{len(states_to_extract)} expressions")
+        logger.info(
+            f"Successfully extracted {len(extracted_expressions)}/{len(states_to_extract)} expressions"
+        )
         return extracted_expressions
 
     def extract_all_expressions(self) -> Dict[str, any]:
@@ -180,14 +189,18 @@ class CharacterExtractor:
             if image is not None:
                 extracted[expr_name] = image
 
-        logger.info(f"Extracted {len(extracted)}/{len(available_expressions)} available expressions")
+        logger.info(
+            f"Extracted {len(extracted)}/{len(available_expressions)} available expressions"
+        )
         return extracted
 
-    def save_expressions(self,
-                        expressions: Dict[str, any],
-                        output_dir: str,
-                        optimize: bool = True,
-                        prefix: str = "character") -> Dict[str, str]:
+    def save_expressions(
+        self,
+        expressions: Dict[str, any],
+        output_dir: str,
+        optimize: bool = True,
+        prefix: str = "character",
+    ) -> Dict[str, str]:
         """
         Save extracted expressions to files.
 
@@ -227,11 +240,13 @@ class CharacterExtractor:
         logger.info(f"Saved {len(saved_files)} expression files to {output_dir}")
         return saved_files
 
-    def extract_and_save(self,
-                        output_dir: str,
-                        custom_mapping: Optional[Dict[str, List[str]]] = None,
-                        optimize: bool = True,
-                        prefix: str = "character") -> Dict[str, str]:
+    def extract_and_save(
+        self,
+        output_dir: str,
+        custom_mapping: Optional[Dict[str, List[str]]] = None,
+        optimize: bool = True,
+        prefix: str = "character",
+    ) -> Dict[str, str]:
         """
         Extract expressions and save them in one step.
 
@@ -260,7 +275,9 @@ class CharacterExtractor:
         # Check which expressions can be mapped
         mappable_states = {}
         for state, expr_names in self.expression_mapping.items():
-            found_expressions = [name for name in expr_names if name in available_expressions]
+            found_expressions = [
+                name for name in expr_names if name in available_expressions
+            ]
             if found_expressions:
                 mappable_states[state] = found_expressions
 
@@ -269,5 +286,5 @@ class CharacterExtractor:
             "available_expressions": available_expressions,
             "mappable_lip_sync_states": mappable_states,
             "total_extractable": len(mappable_states),
-            "expression_mapping": self.expression_mapping
+            "expression_mapping": self.expression_mapping,
         }

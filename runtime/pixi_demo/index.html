@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSD Avatar Demo - PixiJS Reference Implementation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.8;
+        }
+
+        .demo-area {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .canvas-container {
+            flex: 1;
+            min-width: 400px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls {
+            flex: 0 0 300px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #87CEEB;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .control-group input,
+        .control-group select,
+        .control-group button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .control-group input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .control-group button {
+            background: #4CAF50;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .control-group button:hover {
+            background: #45a049;
+        }
+
+        .control-group button:disabled {
+            background: rgba(255,255,255,0.2);
+            cursor: not-allowed;
+        }
+
+        .emotion-sliders {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .slider-container {
+            text-align: center;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .status {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.8em;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        @media (max-width: 768px) {
+            .demo-area {
+                flex-direction: column;
+            }
+
+            .controls {
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎭 PSD Avatar Demo</h1>
+            <p>PixiJS Reference Implementation for Speaking Avatars</p>
+        </div>
+
+        <div class="demo-area">
+            <div class="canvas-container">
+                <canvas id="avatar-canvas"></canvas>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <h3>📁 Load Avatar</h3>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="avatar-file" accept=".json" />
+                        <label for="avatar-file" class="file-input-label">
+                            Choose avatar.json file
+                        </label>
+                    </div>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="atlas-file" accept=".png,.jpg,.jpeg" />
+                        <label for="atlas-file" class="file-input-label">
+                            Choose atlas.png file
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>🎭 Expression Control</h3>
+                    <label>Current State:</label>
+                    <select id="expression-select">
+                        <option value="IdleNeutral">Idle Neutral</option>
+                        <option value="IdleBlink">Blink</option>
+                        <option value="TalkNeutral">Talk Neutral</option>
+                        <option value="Smile">Smile</option>
+                        <option value="Sad">Sad</option>
+                        <option value="Surprised">Surprised</option>
+                    </select>
+
+                    <label>Manual Viseme:</label>
+                    <select id="viseme-select">
+                        <option value="AUTO">AUTO (from TTS)</option>
+                        <option value="REST">REST</option>
+                        <option value="AI">AI</option>
+                        <option value="E">E</option>
+                        <option value="U">U</option>
+                        <option value="O">O</option>
+                        <option value="FV">FV</option>
+                        <option value="L">L</option>
+                        <option value="WQ">WQ</option>
+                        <option value="MBP">MBP</option>
+                        <option value="SIL">SIL</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <h3>😊 Emotion Parameters</h3>
+                    <div class="emotion-sliders">
+                        <div class="slider-container">
+                            <label>Valence</label>
+                            <input type="range" id="valence-slider" min="-100" max="100" value="0" />
+                            <span id="valence-value">0</span>
+                        </div>
+                        <div class="slider-container">
+                            <label>Arousal</label>
+                            <input type="range" id="arousal-slider" min="0" max="100" value="20" />
+                            <span id="arousal-value">20</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>🗣️ Speech Simulation</h3>
+                    <input type="text" id="speech-text" placeholder="Enter text to speak..." />
+                    <button id="speak-button">Start Speaking</button>
+                    <button id="stop-button" disabled>Stop Speaking</button>
+
+                    <label>
+                        <input type="checkbox" id="auto-blink" checked /> Auto Blink
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <h3>📊 Status</h3>
+                    <div class="status" id="status-log">
+                        Ready to load avatar...<br>
+                        Load avatar.json and atlas.png files to begin.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

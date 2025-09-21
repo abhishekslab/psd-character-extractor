@@ -7,6 +7,7 @@ and identify potential character expressions.
 
 import logging
 from typing import Dict, List, Optional, Tuple
+
 from psd_tools import PSDImage
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class PSDAnalyzer:
             "height": self.psd.height,
             "color_mode": self.psd.color_mode,
             "total_layers": len(list(self.psd.descendants())),
-            "file_path": self.psd_path
+            "file_path": self.psd_path,
         }
 
     def analyze_layer_structure(self) -> Dict[str, any]:
@@ -72,7 +73,7 @@ class PSDAnalyzer:
             "basic_info": self.get_basic_info(),
             "layer_tree": layer_tree,
             "expression_analysis": self.find_expression_layers(),
-            "layer_groups": self._find_layer_groups()
+            "layer_groups": self._find_layer_groups(),
         }
 
     def _analyze_layer(self, layer, depth: int = 0) -> Dict[str, any]:
@@ -86,34 +87,31 @@ class PSDAnalyzer:
         Returns:
             Dictionary containing layer information
         """
-        layer_type = "GROUP" if hasattr(layer, '_layers') and layer._layers else "LAYER"
+        layer_type = "GROUP" if hasattr(layer, "_layers") and layer._layers else "LAYER"
 
         layer_info = {
             "name": layer.name,
             "type": layer_type,
             "visible": layer.visible,
             "depth": depth,
-            "children": []
+            "children": [],
         }
 
         # Add dimension info for regular layers
-        if layer_type == "LAYER" and hasattr(layer, 'bbox'):
+        if layer_type == "LAYER" and hasattr(layer, "bbox"):
             try:
                 bbox = layer.bbox
                 if bbox:
                     width = bbox[2] - bbox[0]
                     height = bbox[3] - bbox[1]
-                    layer_info.update({
-                        "width": width,
-                        "height": height,
-                        "x": bbox[0],
-                        "y": bbox[1]
-                    })
+                    layer_info.update(
+                        {"width": width, "height": height, "x": bbox[0], "y": bbox[1]}
+                    )
             except Exception:
                 pass
 
         # Recursively process child layers
-        if hasattr(layer, '_layers') and layer._layers:
+        if hasattr(layer, "_layers") and layer._layers:
             for child in layer._layers:
                 child_info = self._analyze_layer(child, depth + 1)
                 layer_info["children"].append(child_info)
@@ -131,9 +129,24 @@ class PSDAnalyzer:
             raise ValueError("PSD file not loaded")
 
         expression_keywords = [
-            'mouth', 'expression', 'face', 'emotion', 'smile', 'happy',
-            'sad', 'angry', 'neutral', 'open', 'closed', 'surprised',
-            'shocked', 'delighted', 'smug', 'annoyed', 'sleepy', 'laugh'
+            "mouth",
+            "expression",
+            "face",
+            "emotion",
+            "smile",
+            "happy",
+            "sad",
+            "angry",
+            "neutral",
+            "open",
+            "closed",
+            "surprised",
+            "shocked",
+            "delighted",
+            "smug",
+            "annoyed",
+            "sleepy",
+            "laugh",
         ]
 
         potential_expressions = []
@@ -143,27 +156,31 @@ class PSDAnalyzer:
             layer_name_lower = layer.name.lower()
 
             # Check if layer name contains expression keywords
-            matched_keywords = [kw for kw in expression_keywords if kw in layer_name_lower]
+            matched_keywords = [
+                kw for kw in expression_keywords if kw in layer_name_lower
+            ]
 
             if matched_keywords:
                 layer_info = {
                     "name": layer.name,
                     "keywords": matched_keywords,
                     "visible": layer.visible,
-                    "layer_object": layer
+                    "layer_object": layer,
                 }
 
                 # Add dimension info if available
-                if hasattr(layer, 'bbox'):
+                if hasattr(layer, "bbox"):
                     try:
                         bbox = layer.bbox
                         if bbox:
-                            layer_info.update({
-                                "width": bbox[2] - bbox[0],
-                                "height": bbox[3] - bbox[1],
-                                "x": bbox[0],
-                                "y": bbox[1]
-                            })
+                            layer_info.update(
+                                {
+                                    "width": bbox[2] - bbox[0],
+                                    "height": bbox[3] - bbox[1],
+                                    "x": bbox[0],
+                                    "y": bbox[1],
+                                }
+                            )
                     except Exception:
                         pass
 
@@ -187,7 +204,7 @@ class PSDAnalyzer:
             "accessories": ["accessories", "glasses", "hat", "jewelry"],
             "expression": ["expression", "face", "emotion"],
             "body": ["body", "base", "skin"],
-            "background": ["background", "bg", "backdrop"]
+            "background": ["background", "bg", "backdrop"],
         }
 
         layer_groups = {group: [] for group in group_keywords.keys()}
@@ -232,7 +249,7 @@ class PSDAnalyzer:
 
         for name in expression_group_names:
             group = self.get_layer_by_name(name)
-            if group and hasattr(group, '_layers'):
+            if group and hasattr(group, "_layers"):
                 return group
 
         return None

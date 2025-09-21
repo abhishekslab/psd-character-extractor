@@ -9,10 +9,10 @@ __version__ = "0.1.0"
 __author__ = "PSD Character Extractor Contributors"
 __email__ = "contact@example.com"
 
-from .extractor import CharacterExtractor
 from .analyzer import PSDAnalyzer
-from .optimizer import ImageOptimizer
 from .batch import BatchProcessor
+from .extractor import CharacterExtractor
+from .optimizer import ImageOptimizer
 
 __all__ = [
     "CharacterExtractor",

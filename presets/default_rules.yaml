@@ -1,0 +1,186 @@
+# Default PCS Mapping Rules
+# Maps PSD layer names to PCS (PSD Convention Standard) tags
+
+aliases:
+  # Eye mapping rules
+  - match: "(?i)eye[_ -]?l.*open"
+    map: {group: Face, part: Eye, side: L, state: open}
+    priority: 10
+  - match: "(?i)eye[_ -]?l.*closed"
+    map: {group: Face, part: Eye, side: L, state: closed}
+    priority: 10
+  - match: "(?i)eye[_ -]?l.*half"
+    map: {group: Face, part: Eye, side: L, state: half}
+    priority: 10
+  - match: "(?i)eye[_ -]?l.*happy"
+    map: {group: Face, part: Eye, side: L, state: happy}
+    priority: 10
+  - match: "(?i)eye[_ -]?l.*sad"
+    map: {group: Face, part: Eye, side: L, state: sad}
+    priority: 10
+
+  - match: "(?i)eye[_ -]?r.*open"
+    map: {group: Face, part: Eye, side: R, state: open}
+    priority: 10
+  - match: "(?i)eye[_ -]?r.*closed"
+    map: {group: Face, part: Eye, side: R, state: closed}
+    priority: 10
+  - match: "(?i)eye[_ -]?r.*half"
+    map: {group: Face, part: Eye, side: R, state: half}
+    priority: 10
+  - match: "(?i)eye[_ -]?r.*happy"
+    map: {group: Face, part: Eye, side: R, state: happy}
+    priority: 10
+  - match: "(?i)eye[_ -]?r.*sad"
+    map: {group: Face, part: Eye, side: R, state: sad}
+    priority: 10
+
+  # Generic eye patterns
+  - match: "(?i)eye.*left.*open"
+    map: {group: Face, part: Eye, side: L, state: open}
+    priority: 8
+  - match: "(?i)eye.*left.*closed"
+    map: {group: Face, part: Eye, side: L, state: closed}
+    priority: 8
+  - match: "(?i)eye.*right.*open"
+    map: {group: Face, part: Eye, side: R, state: open}
+    priority: 8
+  - match: "(?i)eye.*right.*closed"
+    map: {group: Face, part: Eye, side: R, state: closed}
+    priority: 8
+
+  # Mouth viseme mapping
+  - match: "(?i)mouth[_ -]?(mbp|m|b|p)"
+    map: {group: Face, part: Mouth, viseme: MBP}
+    priority: 10
+  - match: "(?i)mouth[_ -]?a(i)?"
+    map: {group: Face, part: Mouth, viseme: AI}
+    priority: 10
+  - match: "(?i)mouth[_ -]?e"
+    map: {group: Face, part: Mouth, viseme: E}
+    priority: 10
+  - match: "(?i)mouth[_ -]?u"
+    map: {group: Face, part: Mouth, viseme: U}
+    priority: 10
+  - match: "(?i)mouth[_ -]?o"
+    map: {group: Face, part: Mouth, viseme: O}
+    priority: 10
+  - match: "(?i)mouth[_ -]?(f|v|fv)"
+    map: {group: Face, part: Mouth, viseme: FV}
+    priority: 10
+  - match: "(?i)mouth[_ -]?l"
+    map: {group: Face, part: Mouth, viseme: L}
+    priority: 10
+  - match: "(?i)mouth[_ -]?(w|r|wq)"
+    map: {group: Face, part: Mouth, viseme: WQ}
+    priority: 10
+  - match: "(?i)mouth[_ -]?(rest|closed|normal|neutral)"
+    map: {group: Face, part: Mouth, viseme: REST}
+    priority: 10
+  - match: "(?i)mouth[_ -]?(sil|silence)"
+    map: {group: Face, part: Mouth, viseme: SIL}
+    priority: 10
+
+  # Mouth emotion mapping
+  - match: "(?i)mouth[_ -]?smile"
+    map: {group: Face, part: Mouth, emotion: smile}
+    priority: 9
+  - match: "(?i)mouth[_ -]?happy"
+    map: {group: Face, part: Mouth, emotion: smile}
+    priority: 9
+  - match: "(?i)mouth[_ -]?(frown|sad)"
+    map: {group: Face, part: Mouth, emotion: sad}
+    priority: 9
+  - match: "(?i)mouth[_ -]?angry"
+    map: {group: Face, part: Mouth, emotion: angry}
+    priority: 9
+
+  # Brow mapping
+  - match: "(?i)brow[_ -]?l"
+    map: {group: Face, part: Brow, side: L, shape: neutral}
+    priority: 8
+  - match: "(?i)brow[_ -]?r"
+    map: {group: Face, part: Brow, side: R, shape: neutral}
+    priority: 8
+  - match: "(?i)brow.*left"
+    map: {group: Face, part: Brow, side: L, shape: neutral}
+    priority: 7
+  - match: "(?i)brow.*right"
+    map: {group: Face, part: Brow, side: R, shape: neutral}
+    priority: 7
+  - match: "(?i)eyebrow.*up"
+    map: {group: Face, part: Brow, shape: up}
+    priority: 9
+  - match: "(?i)eyebrow.*down"
+    map: {group: Face, part: Brow, shape: down}
+    priority: 9
+
+  # Hair mapping
+  - match: "(?i)hair.*front"
+    map: {group: Hair, layer: front}
+    priority: 5
+  - match: "(?i)hair.*back"
+    map: {group: Hair, layer: back}
+    priority: 5
+
+  # Body mapping
+  - match: "(?i)body"
+    map: {group: Body}
+    priority: 3
+
+  # Accessory mapping
+  - match: "(?i)(accessory|accessories)"
+    map: {group: Accessory}
+    priority: 3
+
+folders:
+  # Face structure
+  - path: "Face/Eyes/L"
+    map: {group: Face, part: Eye, side: L}
+  - path: "Face/Eyes/R"
+    map: {group: Face, part: Eye, side: R}
+  - path: "Face/Eyes/Left"
+    map: {group: Face, part: Eye, side: L}
+  - path: "Face/Eyes/Right"
+    map: {group: Face, part: Eye, side: R}
+  - path: "Face/Mouth"
+    map: {group: Face, part: Mouth}
+  - path: "Face/Brows"
+    map: {group: Face, part: Brow}
+  - path: "Face/Brow"
+    map: {group: Face, part: Brow}
+  - path: "Face/Eyebrows"
+    map: {group: Face, part: Brow}
+
+  # Alternative structures
+  - path: "Eyes/L"
+    map: {group: Face, part: Eye, side: L}
+  - path: "Eyes/R"
+    map: {group: Face, part: Eye, side: R}
+  - path: "Eyes/Left"
+    map: {group: Face, part: Eye, side: L}
+  - path: "Eyes/Right"
+    map: {group: Face, part: Eye, side: R}
+  - path: "Mouth"
+    map: {group: Face, part: Mouth}
+  - path: "Brows"
+    map: {group: Face, part: Brow}
+
+  # Other groups
+  - path: "Hair"
+    map: {group: Hair}
+  - path: "Body"
+    map: {group: Body}
+  - path: "Accessories"
+    map: {group: Accessory}
+  - path: "FX"
+    map: {group: FX}
+
+# Language pack for phoneme/character translations
+language_pack:
+  # Japanese vowel mappings
+  "あ": "AI"
+  "い": "E"
+  "う": "U"
+  "え": "E"
+  "お": "O"
