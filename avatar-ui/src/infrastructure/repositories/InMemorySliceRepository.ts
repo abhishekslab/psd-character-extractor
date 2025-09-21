@@ -1,5 +1,5 @@
 import { Slice } from '../../domain/entities/Slice';
-import { SliceRepository } from '../../domain/repositories/SliceRepository';
+import type { SliceRepository } from '../../domain/repositories/SliceRepository';
 import { SliceId } from '../../domain/value-objects/SliceId';
 
 export class InMemorySliceRepository implements SliceRepository {

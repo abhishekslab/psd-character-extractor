@@ -1,9 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useAvatarAssembly } from './presentation/hooks/useAvatarAssembly';
+import AvatarCanvas from './components/AvatarCanvas';
+import UnmappedSlicesPanel from './components/UnmappedSlicesPanel';
+import SlotPalette from './components/SlotPalette';
+import type { ExtractedSlice, SlotPalette as SlotPaletteType } from './types/avatar';
 import './App.css';
 import './additional-styles.css';
 
 // Slot palette configuration
-const SLOT_PALETTE = {
+const SLOT_PALETTE: SlotPaletteType = {
   "Body": { "torso": {}, "arms": {}, "legs": {} },
   "Head": { "base": {}, "neck": {} },
   "Hair": { "back": {}, "mid": {}, "front": {}, "accessory": {} },
@@ -25,66 +30,151 @@ const SLOT_PALETTE = {
 };
 
 function App() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [slices, setSlices] = useState<any[]>([]);
+  // Clean Architecture - use the presentation layer hook
+  const {
+    avatar,
+    allSlices,
+    unmappedSlices,
+    mappedSlices,
+    selectedSlot,
+    isProcessing,
+    error,
+    loadPSD,
+    mapSliceToSlot,
+    exportBundle,
+    selectSlot,
+    clearError
+  } = useAvatarAssembly();
 
+  // UI-specific state (not business logic)
+  const [selectedSlices, setSelectedSlices] = useState<ExtractedSlice[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visibilitySettings, setVisibilitySettings] = useState<Record<string, boolean>>({});
+  const [zOffsets] = useState<Record<string, number>>({});
+  const [tints] = useState<Record<string, string>>({});
+  const [showAnchors, setShowAnchors] = useState(false);
+  const [showFitBoxes, setShowFitBoxes] = useState(false);
+
+  // Convert domain entities to UI types for compatibility with existing components
+  const convertSliceForUI = useCallback((slice: any): ExtractedSlice => {
+    return {
+      id: slice.id.value,
+      name: slice.name,
+      psdPath: slice.layerPath.value,
+      image: slice.imageData || new ImageData(1, 1), // Fallback
+      canvas: slice.canvas,
+      bounds: {
+        x: slice.bounds.x,
+        y: slice.bounds.y,
+        width: slice.bounds.width,
+        height: slice.bounds.height
+      },
+      mapped: slice.canonicalSlot !== undefined,
+      canonicalSlot: slice.canonicalSlot
+    };
+  }, []);
+
+  const convertAvatarForUI = useCallback((avatar: any) => {
+    if (!avatar) return null;
+
+    return {
+      meta: {
+        generator: 'psd-ce@1.0.0',
+        rigId: avatar.rigId.value
+      },
+      images: {
+        slices: {} // Will be populated from mapped slices
+      },
+      drawOrder: [
+        'Body/*',
+        'Head/*',
+        'Hair/back',
+        'Eyes/*',
+        'Brows/*',
+        'Mouth/*',
+        'Nose/*',
+        'Cheek/*',
+        'Hair/front',
+        'Accessories/*',
+        'FX/*'
+      ],
+      anchors: {
+        headPivot: { x: 512, y: 256 },
+        mouthCenter: { x: 520, y: 320 },
+        neckBase: { x: 512, y: 400 },
+        earL: { x: 460, y: 280 },
+        earR: { x: 564, y: 280 }
+      }
+    };
+  }, []);
+
+  // Convert domain slices to UI format
+  const uiUnmappedSlices = unmappedSlices.map(convertSliceForUI);
+  const uiMappedSlicesArray = mappedSlices.map(convertSliceForUI);
+  const uiMappedSlices: Record<string, ExtractedSlice> = {};
+
+  uiMappedSlicesArray.forEach(slice => {
+    if (slice.canonicalSlot) {
+      uiMappedSlices[slice.canonicalSlot] = slice;
+    }
+  });
+
+  const uiAvatar = convertAvatarForUI(avatar);
+
+  // Event handlers
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      setIsProcessing(true);
-      setError(null);
+      await loadPSD(file);
+    }
+  }, [loadPSD]);
 
-      try {
-        // Simulate PSD processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Mock slices data
-        const mockSlices = [
-          { id: '1', name: 'smile', path: 'Mouth/smile', width: 100, height: 50 },
-          { id: '2', name: 'eyes_open', path: 'Eyes/open', width: 120, height: 60 },
-          { id: '3', name: 'hair_front', path: 'Hair/front', width: 200, height: 300 },
-        ];
-
-        setSlices(mockSlices);
-      } catch (err) {
-        setError('Failed to process PSD file');
-      } finally {
-        setIsProcessing(false);
+  const handleSliceSelect = useCallback((slice: ExtractedSlice) => {
+    setSelectedSlices(prev => {
+      const isSelected = prev.some(s => s.id === slice.id);
+      if (isSelected) {
+        return prev.filter(s => s.id !== slice.id);
+      } else {
+        return [...prev, slice];
       }
+    });
+  }, []);
+
+  const handleSlotDrop = useCallback(async (slotPath: string, droppedSlice: ExtractedSlice) => {
+    await mapSliceToSlot(droppedSlice.id, slotPath);
+    setSelectedSlices(prev => prev.filter(s => s.id !== droppedSlice.id));
+  }, [mapSliceToSlot]);
+
+  const handleCanvasSliceSelect = useCallback((slotPath: string) => {
+    selectSlot(slotPath);
+  }, [selectSlot]);
+
+  const handleToggleVisibility = useCallback((partName: string, visible: boolean) => {
+    if (partName === '__anchors') {
+      setShowAnchors(visible);
+    } else if (partName === '__fitboxes') {
+      setShowFitBoxes(visible);
+    } else {
+      setVisibilitySettings(prev => ({
+        ...prev,
+        [partName]: visible
+      }));
     }
   }, []);
 
-  const handleExport = useCallback(() => {
-    alert('Export functionality would work here!');
-  }, []);
-
-  const generateSlotPaths = (config: any, prefix = ''): string[] => {
-    const paths: string[] = [];
-
-    Object.entries(config).forEach(([key, value]) => {
-      const currentPath = prefix ? `${prefix}/${key}` : key;
-
-      if (Array.isArray(value)) {
-        value.forEach(item => paths.push(`${currentPath}/${item}`));
-      } else if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
-        paths.push(...generateSlotPaths(value, currentPath));
-      } else {
-        paths.push(currentPath);
-      }
-    });
-
-    return paths;
-  };
-
-  const allSlotPaths = generateSlotPaths(SLOT_PALETTE);
+  const handleExport = useCallback(async () => {
+    if (mappedSlices.length === 0) {
+      alert('Please map some slices before exporting.');
+      return;
+    }
+    await exportBundle('Character_Avatar');
+    alert('Bundle exported successfully!');
+  }, [mappedSlices.length, exportBundle]);
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Avatar Assembly UI - Clean Architecture</h1>
+        <h1>Avatar Assembly UI - Complete Implementation</h1>
         <div className="header-controls">
           <input
             type="file"
@@ -97,7 +187,7 @@ function App() {
             📁 Load PSD
           </label>
 
-          {selectedFile && slices.length > 0 && (
+          {avatar && mappedSlices.length > 0 && (
             <button onClick={handleExport} className="export-button">
               📦 Export Bundle
             </button>
@@ -108,71 +198,70 @@ function App() {
       {isProcessing && (
         <div className="loading-overlay">
           <div className="loading-spinner"></div>
-          <div>Processing PSD...</div>
+          <div>Processing PSD file...</div>
+          <div className="loading-details">
+            Extracting layers and generating slices...
+          </div>
         </div>
       )}
 
       {error && (
         <div className="error-message">
           <strong>Error:</strong> {error}
-          <button onClick={() => setError(null)} style={{ marginLeft: '10px' }}>✕</button>
+          <button onClick={clearError} style={{ marginLeft: '10px' }}>✕</button>
         </div>
       )}
 
-      {slices.length > 0 ? (
+      {allSlices.length > 0 ? (
         <main className="main-content">
           <div className="avatar-info">
             <h2>Avatar Information</h2>
-            <div className="info-grid">
-              <div>File: {selectedFile?.name}</div>
-              <div>Total Slices: {slices.length}</div>
-              <div>Size: {selectedFile ? Math.round(selectedFile.size / 1024) + ' KB' : 'Unknown'}</div>
-            </div>
+            {avatar && (
+              <div className="info-grid">
+                <div>Rig ID: {avatar.rigId.value}</div>
+                <div>Total Slices: {allSlices.length}</div>
+                <div>Mapped: {mappedSlices.length}</div>
+                <div>Unmapped: {unmappedSlices.length}</div>
+              </div>
+            )}
           </div>
 
-          <div className="slices-section">
-            <h3>Extracted Slices ({slices.length})</h3>
-            <div className="slices-grid">
-              {slices.map((slice) => (
-                <div key={slice.id} className="slice-card">
-                  <div className="slice-preview">
-                    <div style={{
-                      width: 64,
-                      height: 64,
-                      background: '#e9ecef',
-                      border: '1px solid #dee2e6',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      color: '#6c757d'
-                    }}>
-                      {slice.name}
-                    </div>
-                  </div>
-                  <div className="slice-info">
-                    <div className="slice-name">{slice.name}</div>
-                    <div className="slice-path">{slice.path}</div>
-                    <div className="slice-size">{slice.width}×{slice.height}</div>
-                  </div>
-                </div>
-              ))}
+          <div className="workspace">
+            <div className="left-panel">
+              <UnmappedSlicesPanel
+                slices={uiUnmappedSlices}
+                onSliceSelect={handleSliceSelect}
+                selectedSlices={selectedSlices}
+                onSearch={setSearchQuery}
+                searchQuery={searchQuery}
+              />
             </div>
-          </div>
 
-          <div className="mapping-section">
-            <h3>Available Slots</h3>
-            <p>These are the canonical avatar slots available for mapping:</p>
-            <div className="quick-slots">
-              {allSlotPaths.slice(0, 20).map(slotPath => (
-                <button
-                  key={slotPath}
-                  className="slot-button"
-                >
-                  {slotPath}
-                </button>
-              ))}
+            <div className="center-panel">
+              {uiAvatar && (
+                <AvatarCanvas
+                  mappedSlices={uiMappedSlices}
+                  avatar={uiAvatar}
+                  onSliceSelect={handleCanvasSliceSelect}
+                  selectedSlot={selectedSlot}
+                  visibilitySettings={visibilitySettings}
+                  onToggleVisibility={handleToggleVisibility}
+                  showAnchors={showAnchors}
+                  showFitBoxes={showFitBoxes}
+                  zOffsets={zOffsets}
+                  tints={tints}
+                />
+              )}
+            </div>
+
+            <div className="right-panel">
+              <SlotPalette
+                palette={SLOT_PALETTE}
+                mappedSlices={uiMappedSlices}
+                onSlotDrop={handleSlotDrop}
+                selectedSlot={selectedSlot}
+                onSlotSelect={selectSlot}
+              />
             </div>
           </div>
         </main>
@@ -180,17 +269,79 @@ function App() {
         <div className="empty-state">
           <div className="empty-state-icon">🎨</div>
           <h2>Welcome to Avatar Assembly UI</h2>
-          <p>Clean Architecture Implementation</p>
-          {selectedFile ? (
-            <p>Selected: {selectedFile.name} - Processing will begin when you upload...</p>
-          ) : (
-            <p>Upload a PSD file to get started extracting character expressions and building your avatar.</p>
-          )}
+          <p>Complete Clean Architecture Implementation</p>
+          <p>Upload a PSD file to extract character expressions and build your avatar bundle.</p>
+          <div className="features-list">
+            <div className="feature-item">✅ Clean Architecture with Domain-Driven Design</div>
+            <div className="feature-item">✅ Real PSD.js integration</div>
+            <div className="feature-item">✅ PixiJS canvas rendering</div>
+            <div className="feature-item">✅ Drag-and-drop slice mapping</div>
+            <div className="feature-item">✅ Complete ZIP bundle export</div>
+          </div>
           <label htmlFor="psd-file-input" className="file-input-label large">
             📁 Choose PSD File
           </label>
         </div>
       )}
+
+      <style>{`
+        .workspace {
+          display: grid;
+          grid-template-columns: 1fr 2fr 1fr;
+          gap: 24px;
+          height: calc(100vh - 300px);
+          min-height: 600px;
+        }
+
+        .left-panel,
+        .right-panel {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .center-panel {
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .loading-details {
+          font-size: 14px;
+          color: #6c757d;
+          margin-top: 8px;
+        }
+
+        .features-list {
+          display: inline-block;
+          text-align: left;
+          margin: 24px 0;
+        }
+
+        .feature-item {
+          margin: 8px 0;
+          font-size: 14px;
+          color: #28a745;
+        }
+
+        @media (max-width: 1200px) {
+          .workspace {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+          }
+
+          .center-panel {
+            order: 1;
+          }
+
+          .left-panel {
+            order: 2;
+          }
+
+          .right-panel {
+            order: 3;
+          }
+        }
+      `}</style>
     </div>
   );
 }

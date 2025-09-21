@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { SlotPalette as SlotPaletteType, ExtractedSlice } from '../types/avatar';
+import type { SlotPalette as SlotPaletteType, ExtractedSlice } from '../types/avatar';
 
 interface SlotPaletteProps {
-  slotPalette: SlotPaletteType;
+  palette: SlotPaletteType;
   mappedSlices: Record<string, ExtractedSlice>;
   onSlotSelect: (slotPath: string) => void;
   selectedSlot: string | null;
@@ -15,7 +15,7 @@ interface SlotDropEvent {
 }
 
 const SlotPalette: React.FC<SlotPaletteProps> = ({
-  slotPalette,
+  palette,
   mappedSlices,
   onSlotSelect,
   selectedSlot,
@@ -53,18 +53,18 @@ const SlotPalette: React.FC<SlotPaletteProps> = ({
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
       if (data.type === 'slice') {
-        // Find the slice by ID (this would need to be passed from parent)
-        // For now, we'll emit an event with the slice info
-        const mockSlice: ExtractedSlice = {
+        // The actual slice object should be passed through a global registry
+        // or we create a minimal slice object from the drag data
+        const sliceFromDrag: ExtractedSlice = {
           id: data.sliceId,
           name: data.sliceName,
           psdPath: data.psdPath,
-          image: new ImageData(1, 1), // Placeholder
-          canvas: document.createElement('canvas'), // Placeholder
-          bounds: { x: 0, y: 0, width: 0, height: 0 }, // Placeholder
+          image: new ImageData(1, 1), // Will be populated by parent
+          canvas: document.createElement('canvas'), // Will be populated by parent
+          bounds: data.bounds || { x: 0, y: 0, width: 0, height: 0 },
           mapped: false
         };
-        onSlotDrop(slotPath, mockSlice);
+        onSlotDrop(slotPath, sliceFromDrag);
       }
     } catch (error) {
       console.error('Error parsing drop data:', error);
@@ -176,7 +176,7 @@ const SlotPalette: React.FC<SlotPaletteProps> = ({
       </div>
 
       <div className="parts-list">
-        {Object.entries(slotPalette).map(([partName, partConfig]) => (
+        {Object.entries(palette).map(([partName, partConfig]) => (
           <div key={partName} className="part-section">
             <div
               className={`part-header ${expandedParts.has(partName) ? 'expanded' : 'collapsed'}`}

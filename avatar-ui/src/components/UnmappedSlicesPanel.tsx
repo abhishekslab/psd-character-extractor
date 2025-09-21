@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ExtractedSlice } from '../types/avatar';
+import type { ExtractedSlice } from '../types/avatar';
 
 interface UnmappedSlicesPanelProps {
   slices: ExtractedSlice[];
@@ -24,7 +24,8 @@ const UnmappedSlicesPanel: React.FC<UnmappedSlicesPanelProps> = ({
       type: 'slice',
       sliceId: slice.id,
       sliceName: slice.name,
-      psdPath: slice.psdPath
+      psdPath: slice.psdPath,
+      bounds: slice.bounds
     }));
     e.dataTransfer.effectAllowed = 'move';
   }, []);

@@ -1,8 +1,8 @@
 import { Avatar } from '../../domain/entities/Avatar';
 import { Slice } from '../../domain/entities/Slice';
 import { SliceMapping } from '../../domain/entities/SliceMapping';
-import { SliceRepository } from '../../domain/repositories/SliceRepository';
-import { AvatarRepository } from '../../domain/repositories/AvatarRepository';
+import type { SliceRepository } from '../../domain/repositories/SliceRepository';
+import type { AvatarRepository } from '../../domain/repositories/AvatarRepository';
 import { SliceId } from '../../domain/value-objects/SliceId';
 import { Bounds } from '../../domain/value-objects/Bounds';
 

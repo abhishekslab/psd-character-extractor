@@ -1,5 +1,5 @@
 import { Avatar } from '../../domain/entities/Avatar';
-import { AvatarRepository, ExportOptions } from '../../domain/repositories/AvatarRepository';
+import type { AvatarRepository, ExportOptions } from '../../domain/repositories/AvatarRepository';
 import { RigId } from '../../domain/value-objects/RigId';
 import { DrawOrder } from '../../domain/value-objects/DrawOrder';
 import { AnchorPoint } from '../../domain/value-objects/AnchorPoint';

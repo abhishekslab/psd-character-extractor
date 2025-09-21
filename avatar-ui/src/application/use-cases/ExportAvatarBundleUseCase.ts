@@ -1,4 +1,4 @@
-import { AvatarRepository, ExportOptions } from '../../domain/repositories/AvatarRepository';
+import type { AvatarRepository, ExportOptions } from '../../domain/repositories/AvatarRepository';
 
 export interface ExportAvatarBundleRequest {
   bundleName: string;

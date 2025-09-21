@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import {
+import type {
   Avatar,
   Manifest,
   PSDPathMapping,

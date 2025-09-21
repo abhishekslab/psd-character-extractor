@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
-import { ExtractedSlice, Avatar } from '../types/avatar';
+import type { ExtractedSlice, Avatar } from '../types/avatar';
 
 interface AvatarCanvasProps {
   mappedSlices: Record<string, ExtractedSlice>;

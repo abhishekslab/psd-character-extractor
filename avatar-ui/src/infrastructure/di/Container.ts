@@ -1,14 +1,14 @@
 // Dependency Injection Container
-import { PSDRepository } from '../../domain/repositories/PSDRepository';
-import { SliceRepository } from '../../domain/repositories/SliceRepository';
-import { AvatarRepository } from '../../domain/repositories/AvatarRepository';
+import type { PSDRepository } from '../../domain/repositories/PSDRepository';
+import type { SliceRepository } from '../../domain/repositories/SliceRepository';
+import type { AvatarRepository } from '../../domain/repositories/AvatarRepository';
 
 import { AutoMappingService } from '../../application/services/AutoMappingService';
 import { LoadPSDUseCase } from '../../application/use-cases/LoadPSDUseCase';
 import { MapSliceToSlotUseCase } from '../../application/use-cases/MapSliceToSlotUseCase';
 import { ExportAvatarBundleUseCase } from '../../application/use-cases/ExportAvatarBundleUseCase';
 
-import { MockPSDAdapter } from '../adapters/MockPSDAdapter';
+import { PSDAdapter } from '../adapters/PSDAdapter';
 import { InMemorySliceRepository } from '../repositories/InMemorySliceRepository';
 import { InMemoryAvatarRepository } from '../repositories/InMemoryAvatarRepository';
 
@@ -29,7 +29,7 @@ export class Container {
 
   private configureDependencies(): void {
     // Repositories
-    this.dependencies.set('PSDRepository', new MockPSDAdapter());
+    this.dependencies.set('PSDRepository', new PSDAdapter());
     this.dependencies.set('SliceRepository', new InMemorySliceRepository());
     this.dependencies.set('AvatarRepository', new InMemoryAvatarRepository());
 

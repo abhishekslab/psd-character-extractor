@@ -1,5 +1,5 @@
-import { PSDRepository } from '../../domain/repositories/PSDRepository';
-import { SliceRepository } from '../../domain/repositories/SliceRepository';
+import type { PSDRepository } from '../../domain/repositories/PSDRepository';
+import type { SliceRepository } from '../../domain/repositories/SliceRepository';
 import { AutoMappingService } from '../services/AutoMappingService';
 
 export interface LoadPSDRequest {

@@ -1,5 +1,5 @@
 import PSD from 'psd.js';
-import { ExtractedSlice } from '../types/avatar';
+import type { ExtractedSlice } from '../types/avatar';
 
 export interface PSDLayer {
   name: string;
@@ -23,50 +23,59 @@ export class PSDProcessor {
 
   async loadPSD(file: File): Promise<void> {
     const arrayBuffer = await file.arrayBuffer();
-    this.psd = PSD.fromDroppedFile(file);
-    await this.psd.parse();
+    const buffer = new Uint8Array(arrayBuffer);
+    this.psd = new PSD(buffer);
+    this.psd.parse();
   }
 
   private buildLayerPath(layer: any, parentPath: string = ''): string {
-    const name = layer.name || 'Unnamed';
+    const name = layer.name ? layer.name() : 'Unnamed';
     return parentPath ? `${parentPath}/${name}` : name;
   }
 
   private extractLayerInfo(layer: any, parentPath: string = ''): PSDLayer {
     const path = this.buildLayerPath(layer, parentPath);
+    const name = layer.name ? layer.name() : 'Unnamed';
+    const left = layer.left ? layer.left() : 0;
+    const top = layer.top ? layer.top() : 0;
+    const right = layer.right ? layer.right() : 0;
+    const bottom = layer.bottom ? layer.bottom() : 0;
 
     return {
-      name: layer.name || 'Unnamed',
-      visible: layer.visible !== false,
-      opacity: layer.opacity || 255,
-      left: layer.left || 0,
-      top: layer.top || 0,
-      right: layer.right || 0,
-      bottom: layer.bottom || 0,
-      width: (layer.right || 0) - (layer.left || 0),
-      height: (layer.bottom || 0) - (layer.top || 0),
-      isGroup: layer.children && layer.children.length > 0,
+      name,
+      visible: layer.visible ? layer.visible() : true,
+      opacity: layer.opacity ? layer.opacity() : 255,
+      left,
+      top,
+      right,
+      bottom,
+      width: right - left,
+      height: bottom - top,
+      isGroup: layer.children ? layer.children().length > 0 : false,
       path,
-      children: layer.children ? layer.children.map((child: any) =>
+      children: layer.children ? layer.children().map((child: any) =>
         this.extractLayerInfo(child, path)
       ) : undefined
     };
   }
 
   getLayerTree(): PSDLayer[] {
-    if (!this.psd || !this.psd.tree) {
+    if (!this.psd || !this.psd.tree()) {
       return [];
     }
 
-    return this.psd.tree.children.map((layer: any) =>
+    return this.psd.tree().children().map((layer: any) =>
       this.extractLayerInfo(layer)
     );
   }
 
   private async renderLayerToCanvas(layer: any): Promise<HTMLCanvasElement | null> {
     try {
+      const width = layer.width || 0;
+      const height = layer.height || 0;
+
       // Skip if layer has no content or is empty
-      if (!layer || layer.width <= 0 || layer.height <= 0) {
+      if (!layer || width <= 0 || height <= 0) {
         return null;
       }
 
@@ -77,11 +86,11 @@ export class PSDProcessor {
         throw new Error('Could not get canvas context');
       }
 
-      canvas.width = layer.width;
-      canvas.height = layer.height;
+      canvas.width = width;
+      canvas.height = height;
 
-      // Get layer image data
-      const imageData = layer.toPng();
+      // Get layer image data using the correct API
+      const imageData = layer.toPng ? layer.toPng() : null;
       if (!imageData) {
         return null;
       }
@@ -109,14 +118,27 @@ export class PSDProcessor {
 
     for (const layer of layers) {
       const path = this.buildLayerPath(layer, parentPath);
+      const children = layer.children ? layer.children() : [];
+      const visible = layer.visible ? layer.visible() : true;
+      const width = layer.width || 0;
+      const height = layer.height || 0;
 
-      if (layer.children && layer.children.length > 0) {
+      if (children && children.length > 0) {
         // If it's a group, recurse into children
-        flattened.push(...this.flattenLayers(layer.children, path));
+        flattened.push(...this.flattenLayers(children, path));
       } else {
         // If it's a leaf layer and visible, add it
-        if (layer.visible !== false && layer.width > 0 && layer.height > 0) {
-          flattened.push({ ...layer, path });
+        if (visible && width > 0 && height > 0) {
+          flattened.push({
+            ...layer,
+            path,
+            width,
+            height,
+            visible,
+            name: layer.name ? layer.name() : 'Unnamed',
+            left: layer.left ? layer.left() : 0,
+            top: layer.top ? layer.top() : 0
+          });
         }
       }
     }
@@ -125,11 +147,11 @@ export class PSDProcessor {
   }
 
   async extractAllSlices(): Promise<ExtractedSlice[]> {
-    if (!this.psd || !this.psd.tree) {
+    if (!this.psd || !this.psd.tree()) {
       throw new Error('No PSD loaded');
     }
 
-    const flatLayers = this.flattenLayers(this.psd.tree.children);
+    const flatLayers = this.flattenLayers(this.psd.tree().children());
     const slices: ExtractedSlice[] = [];
 
     for (let i = 0; i < flatLayers.length; i++) {
@@ -178,8 +200,8 @@ export class PSDProcessor {
     }
 
     return {
-      width: this.psd.header?.width || this.canvasWidth,
-      height: this.psd.header?.height || this.canvasHeight
+      width: this.psd.header ? (this.psd.header.width || this.canvasWidth) : this.canvasWidth,
+      height: this.psd.header ? (this.psd.header.height || this.canvasHeight) : this.canvasHeight
     };
   }
 
