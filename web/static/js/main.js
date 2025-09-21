@@ -527,7 +527,9 @@ class PSDCharacterExtractor {
                 thumbnailElement.title = 'Failed to load preview';
             };
 
-            img.src = previewUrl;
+            // Add cache busting for component thumbnails too
+            const cacheBustUrl = `${previewUrl}?t=${Date.now()}`;
+            img.src = cacheBustUrl;
 
         } catch (error) {
             console.error(`Error loading thumbnail for ${componentName}:`, error);
@@ -687,6 +689,14 @@ class PSDCharacterExtractor {
             // Use the raw-preview endpoint for isolated layer previews
             const previewUrl = `/api/raw-preview/${this.currentJobId}/${encodeURIComponent(layerName)}`;
 
+            // Add timestamp for cache busting
+            const cacheBustUrl = `${previewUrl}?t=${Date.now()}`;
+
+            console.log(`🔍 Loading raw layer thumbnail for: "${layerName}"`);
+            console.log(`📍 Preview URL: ${previewUrl}`);
+            console.log(`🔄 Cache-busted URL: ${cacheBustUrl}`);
+            console.log(`🆔 Job ID: ${this.currentJobId}`);
+
             const img = document.createElement('img');
             img.alt = layerName;
 
@@ -694,20 +704,40 @@ class PSDCharacterExtractor {
                 thumbnailElement.innerHTML = ''; // Clear loading content
                 thumbnailElement.appendChild(img);
                 thumbnailElement.className = 'component-thumbnail';
-                console.log(`Raw layer thumbnail loaded: ${layerName}`);
+                console.log(`✅ Raw layer thumbnail loaded successfully: ${layerName}`);
+                console.log(`📏 Image dimensions: ${img.naturalWidth}x${img.naturalHeight}`);
             };
 
-            img.onerror = () => {
+            img.onerror = async (event) => {
                 thumbnailElement.className = 'component-thumbnail loading error';
                 thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
                 thumbnailElement.title = 'Failed to load raw preview';
-                console.error(`Failed to load raw thumbnail for: ${layerName}`);
+                console.error(`❌ Failed to load raw thumbnail for: ${layerName}`);
+                console.error(`🔗 Failed URL: ${previewUrl}`);
+                console.error(`🔄 Failed cache-busted URL: ${cacheBustUrl}`);
+                console.error(`📊 Error event:`, event);
+
+                // Try to get more detailed error information from the API
+                try {
+                    const response = await fetch(cacheBustUrl);
+                    const statusText = response.statusText;
+                    const status = response.status;
+                    console.error(`🌐 HTTP Status: ${status} ${statusText}`);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`📄 Error response body:`, errorText);
+                    }
+                } catch (fetchError) {
+                    console.error(`🚫 Could not fetch error details:`, fetchError);
+                }
             };
 
-            img.src = previewUrl;
+            img.src = cacheBustUrl;
 
         } catch (error) {
-            console.error(`Error loading raw layer thumbnail for ${layerName}:`, error);
+            console.error(`💥 Error loading raw layer thumbnail for ${layerName}:`, error);
+            console.error(`🔍 Error stack:`, error.stack);
             thumbnailElement.className = 'component-thumbnail loading error';
             thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
         }

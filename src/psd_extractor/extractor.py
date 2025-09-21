@@ -128,39 +128,171 @@ class CharacterExtractor:
             raise ValueError("PSD file not loaded")
 
         try:
+            logger.info(f"Starting raw layer extraction for: '{layer_name}'")
+
             # Find the target layer
             target_layer = self.analyzer.get_layer_by_name(layer_name)
             if not target_layer:
-                logger.error(f"Layer '{layer_name}' not found")
+                logger.error(f"Layer '{layer_name}' not found in PSD")
                 return None
+
+            logger.debug(
+                f"Found target layer: '{target_layer.name}' (type: {type(target_layer)})"
+            )
 
             # Save original visibility states
             original_visibility = {}
             all_layers = list(self.psd.descendants())
+            logger.debug(f"Found {len(all_layers)} total layers in PSD")
 
+            visible_layers_before = []
             for layer in all_layers:
-                if hasattr(layer, 'visible'):
+                if hasattr(layer, "visible"):
                     original_visibility[layer.name] = layer.visible
+                    if layer.visible:
+                        visible_layers_before.append(layer.name)
+
+            logger.debug(f"Originally visible layers: {visible_layers_before}")
 
             try:
                 # Hide ALL layers first
+                hidden_count = 0
                 for layer in all_layers:
-                    if hasattr(layer, 'visible'):
+                    if hasattr(layer, "visible"):
                         layer.visible = False
+                        hidden_count += 1
+
+                logger.debug(f"Hidden {hidden_count} layers")
 
                 # Show ONLY the target layer - no context, no base layers
                 target_layer.visible = True
 
-                # Composite the image with only this layer visible
+                # CRITICAL: Also make sure all parent groups are visible
+                # If a parent group is hidden, the child layer won't show
+                current = target_layer
+                parent_groups_made_visible = []
+                while hasattr(current, "parent") and current.parent is not None:
+                    parent = current.parent
+                    if hasattr(parent, "visible") and hasattr(parent, "name"):
+                        if not parent.visible:
+                            parent.visible = True
+                            parent_groups_made_visible.append(parent.name)
+                            logger.debug(f"Made parent group visible: {parent.name}")
+                    current = parent
+
+                logger.info(
+                    f"Isolated layer '{layer_name}' - made {len(parent_groups_made_visible)} parent groups visible: {parent_groups_made_visible}"
+                )
+
+                # Debug: Check final visibility state
+                visible_after = []
+                for layer in all_layers:
+                    if (
+                        hasattr(layer, "visible")
+                        and layer.visible
+                        and hasattr(layer, "name")
+                    ):
+                        visible_after.append(layer.name)
+
+                logger.debug(f"Layers visible after isolation: {visible_after}")
+
+                # Try two different approaches for layer extraction
+
+                # Approach 1: Direct layer compositing (try this first for better isolation)
+                try:
+                    if hasattr(target_layer, "composite") and callable(
+                        target_layer.composite
+                    ):
+                        logger.debug(
+                            f"Attempting direct layer composite for: {layer_name}"
+                        )
+                        layer_image = target_layer.composite()
+
+                        if layer_image and layer_image.size != (0, 0):
+                            logger.info(
+                                f"Direct layer composite successful - Size: {layer_image.size}"
+                            )
+
+                            # Check if this gives us better isolation
+                            if hasattr(layer_image, "getextrema"):
+                                try:
+                                    rgba_image = layer_image.convert("RGBA")
+                                    alpha_extrema = rgba_image.split()[-1].getextrema()
+                                    logger.debug(
+                                        f"Direct layer alpha range: {alpha_extrema}"
+                                    )
+
+                                    if alpha_extrema[0] == 0:  # Has transparency
+                                        logger.info(
+                                            f"Direct layer extraction has transparency - using this method"
+                                        )
+                                        return layer_image
+                                except Exception as e:
+                                    logger.debug(
+                                        f"Could not analyze direct layer transparency: {e}"
+                                    )
+
+                            return layer_image
+                        else:
+                            logger.debug(
+                                f"Direct layer composite returned empty/invalid image"
+                            )
+                    else:
+                        logger.debug(
+                            f"Layer {layer_name} does not support direct composite"
+                        )
+                except Exception as e:
+                    logger.debug(f"Direct layer composite failed: {e}")
+
+                # Approach 2: Full PSD composite with visibility manipulation (fallback)
+                logger.debug(
+                    f"Falling back to full PSD composite with visibility manipulation"
+                )
                 composite_image = self.psd.composite()
-                logger.info(f"Successfully extracted raw layer: {layer_name}")
+
+                if composite_image:
+                    logger.info(
+                        f"PSD composite extraction: {layer_name} - Size: {composite_image.size}"
+                    )
+
+                    # Additional debug: Check if image is actually different from full composite
+                    if hasattr(composite_image, "getextrema"):
+                        try:
+                            # Convert to RGBA to check alpha channel
+                            rgba_image = composite_image.convert("RGBA")
+                            alpha_extrema = rgba_image.split()[
+                                -1
+                            ].getextrema()  # Get alpha channel extrema
+                            logger.debug(f"PSD composite alpha range: {alpha_extrema}")
+
+                            if alpha_extrema[0] == 0:  # Has transparent pixels
+                                logger.info(
+                                    f"PSD composite has transparency - partial isolation achieved"
+                                )
+                            else:
+                                logger.warning(
+                                    f"PSD composite has no transparency - likely full composite"
+                                )
+                        except Exception as e:
+                            logger.debug(
+                                f"Could not analyze PSD composite transparency: {e}"
+                            )
+                else:
+                    logger.warning(
+                        f"PSD composite returned None for raw layer: {layer_name}"
+                    )
+
                 return composite_image
 
             finally:
                 # Restore original visibility states
+                restored_count = 0
                 for layer in all_layers:
-                    if hasattr(layer, 'visible') and layer.name in original_visibility:
+                    if hasattr(layer, "visible") and layer.name in original_visibility:
                         layer.visible = original_visibility[layer.name]
+                        restored_count += 1
+
+                logger.debug(f"Restored visibility for {restored_count} layers")
 
         except Exception as e:
             logger.error(f"Failed to extract raw layer '{layer_name}': {e}")
@@ -240,13 +372,13 @@ class CharacterExtractor:
             all_layers = list(self.psd.descendants())
 
             for layer in all_layers:
-                if hasattr(layer, 'visible'):
+                if hasattr(layer, "visible"):
                     original_visibility[layer.name] = layer.visible
 
             try:
                 # Hide all layers first
                 for layer in all_layers:
-                    if hasattr(layer, 'visible'):
+                    if hasattr(layer, "visible"):
                         layer.visible = False
 
                 # Show only the target component
@@ -265,9 +397,12 @@ class CharacterExtractor:
                 # Show base layers for proper context
                 if target_category in ["clothing", "accessories", "shoes", "bottom"]:
                     for layer in all_layers:
-                        if hasattr(layer, 'visible') and hasattr(layer, 'name'):
+                        if hasattr(layer, "visible") and hasattr(layer, "name"):
                             layer_name_lower = layer.name.lower()
-                            if any(keyword in layer_name_lower for keyword in ["body", "base", "skin"]):
+                            if any(
+                                keyword in layer_name_lower
+                                for keyword in ["body", "base", "skin"]
+                            ):
                                 layer.visible = True
 
                 # Composite the image
@@ -278,7 +413,7 @@ class CharacterExtractor:
             finally:
                 # Restore original visibility states
                 for layer in all_layers:
-                    if hasattr(layer, 'visible') and layer.name in original_visibility:
+                    if hasattr(layer, "visible") and layer.name in original_visibility:
                         layer.visible = original_visibility[layer.name]
 
         except Exception as e:
@@ -400,11 +535,17 @@ class CharacterExtractor:
                     if image is not None:
                         category_extracted[component_name] = image
 
-            if category_extracted:  # Only include categories with successful extractions
+            if (
+                category_extracted
+            ):  # Only include categories with successful extractions
                 extracted_by_category[category] = category_extracted
 
-        total_extracted = sum(len(category_dict) for category_dict in extracted_by_category.values())
-        logger.info(f"Extracted {total_extracted} components across {len(extracted_by_category)} categories")
+        total_extracted = sum(
+            len(category_dict) for category_dict in extracted_by_category.values()
+        )
+        logger.info(
+            f"Extracted {total_extracted} components across {len(extracted_by_category)} categories"
+        )
         return extracted_by_category
 
     def save_expressions(
@@ -504,7 +645,9 @@ class CharacterExtractor:
                 component_stats[category] = {
                     "total": len(components),
                     "extractable": extractable_count,
-                    "components": [c["name"] for c in components if c["type"] == "LAYER"]
+                    "components": [
+                        c["name"] for c in components if c["type"] == "LAYER"
+                    ],
                 }
 
         return {
@@ -520,8 +663,8 @@ class CharacterExtractor:
                 {
                     "name": comp["name"],
                     "category": comp["category"],
-                    "dimensions": comp["dimensions"]
+                    "dimensions": comp["dimensions"],
                 }
                 for comp in extractable_components
-            ]
+            ],
         }

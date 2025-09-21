@@ -13,14 +13,14 @@ import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.requests import Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.requests import Request
-from pydantic import BaseModel
 from PIL import Image
 from psd_tools import PSDImage
+from pydantic import BaseModel
 
 from .utils.async_extractor import AsyncPSDExtractor
 from .utils.job_manager import JobManager, JobStatus
@@ -48,6 +48,7 @@ app.mount("/static", StaticFiles(directory="web/static"), name="static")
 # Pydantic models for API
 class JobResponse(BaseModel):
     """Response model for job operations."""
+
     job_id: str
     status: str
     progress: float
@@ -56,6 +57,7 @@ class JobResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     """Response model for PSD analysis."""
+
     job_id: str
     status: str
     psd_info: Dict
@@ -69,11 +71,13 @@ class AnalysisResponse(BaseModel):
 
 class MappingUpdate(BaseModel):
     """Request model for mapping updates."""
+
     mapping: Dict[str, List[str]]
 
 
 class ExtractionResponse(BaseModel):
     """Response model for extraction results."""
+
     job_id: str
     status: str
     results: Dict[str, List[Dict]]
@@ -81,6 +85,7 @@ class ExtractionResponse(BaseModel):
 
 class RawLayersResponse(BaseModel):
     """Response model for raw layers."""
+
     job_id: str
     status: str
     raw_layers: List[Dict]
@@ -113,7 +118,7 @@ async def index(request: Request):
 @app.post("/api/upload", response_model=JobResponse)
 async def upload_psd(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(..., description="PSD file to process")
+    file: UploadFile = File(..., description="PSD file to process"),
 ):
     """
     Upload a PSD file and start processing.
@@ -125,7 +130,7 @@ async def upload_psd(
         Job information with job_id for tracking progress
     """
     # Validate file
-    if not file.filename or not file.filename.lower().endswith('.psd'):
+    if not file.filename or not file.filename.lower().endswith(".psd"):
         raise HTTPException(status_code=400, detail="Only PSD files are allowed")
 
     try:
@@ -145,7 +150,7 @@ async def upload_psd(
             job_id=job_id,
             status=JobStatus.PENDING.value,
             progress=0.0,
-            message=f"File {file.filename} uploaded successfully"
+            message=f"File {file.filename} uploaded successfully",
         )
 
     except Exception as e:
@@ -172,7 +177,7 @@ async def get_job_status(job_id: str):
         job_id=job.id,
         status=job.status.value,
         progress=job.progress,
-        message=job.error_message
+        message=job.error_message,
     )
 
 
@@ -194,12 +199,12 @@ async def get_analysis_results(job_id: str):
     if job.status not in [JobStatus.READY_FOR_MAPPING, JobStatus.COMPLETED]:
         raise HTTPException(
             status_code=400,
-            detail=f"Analysis not ready. Current status: {job.status.value}"
+            detail=f"Analysis not ready. Current status: {job.status.value}",
         )
 
     # Get component data from analysis result
     analysis_result = job.analysis_result or {}
-    component_analysis = analysis_result.get('component_analysis', {})
+    component_analysis = analysis_result.get("component_analysis", {})
 
     # Clean component data for serialization (remove layer_object references)
     cleaned_components = {}
@@ -231,17 +236,19 @@ async def get_analysis_results(job_id: str):
             # Count extractable components
             if comp.get("type") == "LAYER":
                 extractable_count += 1
-                extractable_components.append({
-                    "name": comp["name"],
-                    "category": category,
-                    "visible": comp.get("visible", False),
-                    "dimensions": {
-                        "width": comp.get("width", 0),
-                        "height": comp.get("height", 0),
-                        "x": comp.get("x", 0),
-                        "y": comp.get("y", 0)
+                extractable_components.append(
+                    {
+                        "name": comp["name"],
+                        "category": category,
+                        "visible": comp.get("visible", False),
+                        "dimensions": {
+                            "width": comp.get("width", 0),
+                            "height": comp.get("height", 0),
+                            "x": comp.get("x", 0),
+                            "y": comp.get("y", 0),
+                        },
                     }
-                })
+                )
 
         cleaned_components[category] = cleaned_category_components
 
@@ -249,19 +256,21 @@ async def get_analysis_results(job_id: str):
             component_stats[category] = {
                 "total": len(components),
                 "extractable": extractable_count,
-                "components": [c["name"] for c in components if c.get("type") == "LAYER"]
+                "components": [
+                    c["name"] for c in components if c.get("type") == "LAYER"
+                ],
             }
 
     return AnalysisResponse(
         job_id=job.id,
         status=job.status.value,
-        psd_info=analysis_result.get('basic_info', {}),
+        psd_info=analysis_result.get("basic_info", {}),
         available_expressions=job.available_expressions or [],
         mapping_suggestions=job.mapping_suggestions or {},
         current_mapping=job.current_mapping or {},
         all_components=cleaned_components,
         component_statistics=component_stats,
-        extractable_components=extractable_components
+        extractable_components=extractable_components,
     )
 
 
@@ -284,7 +293,7 @@ async def update_mapping(job_id: str, mapping_update: MappingUpdate):
     if job.status != JobStatus.READY_FOR_MAPPING:
         raise HTTPException(
             status_code=400,
-            detail=f"Job not ready for mapping updates. Current status: {job.status.value}"
+            detail=f"Job not ready for mapping updates. Current status: {job.status.value}",
         )
 
     # Update mapping
@@ -296,15 +305,12 @@ async def update_mapping(job_id: str, mapping_update: MappingUpdate):
         job_id=job.id,
         status=job.status.value,
         progress=job.progress,
-        message="Mapping updated successfully"
+        message="Mapping updated successfully",
     )
 
 
 @app.post("/api/extract/{job_id}", response_model=JobResponse)
-async def start_extraction(
-    job_id: str,
-    background_tasks: BackgroundTasks
-):
+async def start_extraction(job_id: str, background_tasks: BackgroundTasks):
     """
     Start expression extraction with current mapping.
 
@@ -321,7 +327,7 @@ async def start_extraction(
     if job.status != JobStatus.READY_FOR_MAPPING:
         raise HTTPException(
             status_code=400,
-            detail=f"Job not ready for extraction. Current status: {job.status.value}"
+            detail=f"Job not ready for extraction. Current status: {job.status.value}",
         )
 
     if not job.current_mapping:
@@ -337,7 +343,7 @@ async def start_extraction(
         job_id=job.id,
         status=JobStatus.EXTRACTING.value,
         progress=50.0,
-        message="Extraction started"
+        message="Extraction started",
     )
 
 
@@ -359,13 +365,11 @@ async def get_extraction_results(job_id: str):
     if job.status != JobStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
-            detail=f"Extraction not completed. Current status: {job.status.value}"
+            detail=f"Extraction not completed. Current status: {job.status.value}",
         )
 
     return ExtractionResponse(
-        job_id=job.id,
-        status=job.status.value,
-        results=job.extraction_result or {}
+        job_id=job.id, status=job.status.value, results=job.extraction_result or {}
     )
 
 
@@ -387,7 +391,7 @@ async def download_results(job_id: str):
     if job.status != JobStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
-            detail=f"Extraction not completed. Current status: {job.status.value}"
+            detail=f"Extraction not completed. Current status: {job.status.value}",
         )
 
     # Create download archive
@@ -398,7 +402,7 @@ async def download_results(job_id: str):
     return FileResponse(
         path=archive_path,
         filename=f"expressions_{job.psd_filename}_{job_id[:8]}.zip",
-        media_type="application/zip"
+        media_type="application/zip",
     )
 
 
@@ -430,17 +434,21 @@ async def get_composite_preview(job_id: str, thumbnail: bool = True):
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=3600",
-                "Content-Disposition": f"inline; filename=\"{job_id}_composite.png\""
-            }
+                "Content-Disposition": f'inline; filename="{job_id}_composite.png"',
+            },
         )
 
     except Exception as e:
         logger.error(f"Failed to generate composite preview for job {job_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate preview: {str(e)}"
+        )
 
 
 @app.get("/api/preview/{job_id}/component/{component_name}")
-async def get_component_preview(job_id: str, component_name: str, thumbnail: bool = True):
+async def get_component_preview(
+    job_id: str, component_name: str, thumbnail: bool = True
+):
     """
     Get preview image of a specific component (expressions, hair, clothing, etc.).
 
@@ -461,7 +469,7 @@ async def get_component_preview(job_id: str, component_name: str, thumbnail: boo
 
     # Check if component exists in available components
     analysis_result = job.analysis_result or {}
-    component_analysis = analysis_result.get('component_analysis', {})
+    component_analysis = analysis_result.get("component_analysis", {})
 
     component_found = False
     for category, components in component_analysis.items():
@@ -470,24 +478,32 @@ async def get_component_preview(job_id: str, component_name: str, thumbnail: boo
             break
 
     if not component_found:
-        raise HTTPException(status_code=404, detail=f"Component '{component_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Component '{component_name}' not found"
+        )
 
     try:
         # Generate component preview image
-        image_bytes = await generate_component_preview(job.psd_path, component_name, thumbnail)
+        image_bytes = await generate_component_preview(
+            job.psd_path, component_name, thumbnail
+        )
 
         return Response(
             content=image_bytes,
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=3600",
-                "Content-Disposition": f"inline; filename=\"{job_id}_{component_name}.png\""
-            }
+                "Content-Disposition": f'inline; filename="{job_id}_{component_name}.png"',
+            },
         )
 
     except Exception as e:
-        logger.error(f"Failed to generate component preview for {component_name} in job {job_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate component preview: {str(e)}")
+        logger.error(
+            f"Failed to generate component preview for {component_name} in job {job_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate component preview: {str(e)}"
+        )
 
 
 @app.get("/api/raw-layers/{job_id}", response_model=RawLayersResponse)
@@ -508,7 +524,7 @@ async def get_raw_layers(job_id: str):
     if job.status not in [JobStatus.READY_FOR_MAPPING, JobStatus.COMPLETED]:
         raise HTTPException(
             status_code=400,
-            detail=f"Analysis not ready. Current status: {job.status.value}"
+            detail=f"Analysis not ready. Current status: {job.status.value}",
         )
 
     if not Path(job.psd_path).exists():
@@ -536,14 +552,14 @@ async def get_raw_layers(job_id: str):
             cleaned_layers.append(cleaned_layer)
 
         return RawLayersResponse(
-            job_id=job.id,
-            status=job.status.value,
-            raw_layers=cleaned_layers
+            job_id=job.id, status=job.status.value, raw_layers=cleaned_layers
         )
 
     except Exception as e:
         logger.error(f"Failed to get raw layers for job {job_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get raw layers: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get raw layers: {str(e)}"
+        )
 
 
 @app.get("/api/raw-preview/{job_id}/{layer_name}")
@@ -559,33 +575,75 @@ async def get_raw_layer_preview(job_id: str, layer_name: str, thumbnail: bool = 
     Returns:
         PNG image of the isolated layer
     """
+    logger.info(
+        f"Raw layer preview requested - Job: {job_id}, Layer: '{layer_name}', Thumbnail: {thumbnail}"
+    )
+
     job = await job_manager.get_job(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        logger.error(f"Job {job_id} not found for raw layer preview")
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     if not Path(job.psd_path).exists():
+        logger.error(f"PSD file not found: {job.psd_path}")
         raise HTTPException(status_code=404, detail="PSD file not found")
+
+    # Validate that job is in correct state for preview
+    if job.status.value not in ["ready_for_mapping", "completed"]:
+        logger.warning(
+            f"Job {job_id} not ready for raw layer preview - Status: {job.status.value}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job not ready for preview. Status: {job.status.value}",
+        )
 
     try:
         # Generate isolated layer preview image
-        image_bytes = await generate_raw_layer_preview(job.psd_path, layer_name, thumbnail)
+        image_bytes = await generate_raw_layer_preview(
+            job.psd_path, layer_name, thumbnail
+        )
+
+        if not image_bytes:
+            logger.error(
+                f"No image data generated for raw layer '{layer_name}' in job {job_id}"
+            )
+            raise HTTPException(status_code=500, detail="No image data generated")
+
+        logger.info(
+            f"Successfully generated raw layer preview - Job: {job_id}, Layer: '{layer_name}', Size: {len(image_bytes)} bytes"
+        )
 
         return Response(
             content=image_bytes,
             media_type="image/png",
             headers={
-                "Cache-Control": "public, max-age=3600",
-                "Content-Disposition": f"inline; filename=\"{job_id}_{layer_name}_raw.png\""
-            }
+                "Cache-Control": "no-cache, no-store, must-revalidate",  # Disable caching for debugging
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "Content-Disposition": f'inline; filename="{job_id}_{layer_name}_raw.png"',
+            },
         )
 
+    except ValueError as ve:
+        logger.error(
+            f"Value error generating raw layer preview for {layer_name} in job {job_id}: {ve}"
+        )
+        raise HTTPException(status_code=400, detail=f"Layer error: {str(ve)}")
     except Exception as e:
-        logger.error(f"Failed to generate raw layer preview for {layer_name} in job {job_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate raw layer preview: {str(e)}")
+        logger.error(
+            f"Failed to generate raw layer preview for {layer_name} in job {job_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate raw layer preview: {str(e)}"
+        )
 
 
 @app.get("/api/preview/{job_id}/expression/{expression_name}")
-async def get_expression_preview(job_id: str, expression_name: str, thumbnail: bool = True):
+async def get_expression_preview(
+    job_id: str, expression_name: str, thumbnail: bool = True
+):
     """
     Get preview image of a specific expression.
 
@@ -605,25 +663,36 @@ async def get_expression_preview(job_id: str, expression_name: str, thumbnail: b
         raise HTTPException(status_code=404, detail="PSD file not found")
 
     # Check if expression exists in available expressions
-    if not job.available_expressions or expression_name not in job.available_expressions:
-        raise HTTPException(status_code=404, detail=f"Expression '{expression_name}' not found")
+    if (
+        not job.available_expressions
+        or expression_name not in job.available_expressions
+    ):
+        raise HTTPException(
+            status_code=404, detail=f"Expression '{expression_name}' not found"
+        )
 
     try:
         # Generate expression preview image
-        image_bytes = await generate_expression_preview(job.psd_path, expression_name, thumbnail)
+        image_bytes = await generate_expression_preview(
+            job.psd_path, expression_name, thumbnail
+        )
 
         return Response(
             content=image_bytes,
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=3600",
-                "Content-Disposition": f"inline; filename=\"{job_id}_{expression_name}.png\""
-            }
+                "Content-Disposition": f'inline; filename="{job_id}_{expression_name}.png"',
+            },
         )
 
     except Exception as e:
-        logger.error(f"Failed to generate expression preview for {expression_name} in job {job_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate expression preview: {str(e)}")
+        logger.error(
+            f"Failed to generate expression preview for {expression_name} in job {job_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate expression preview: {str(e)}"
+        )
 
 
 # Utility functions for image processing
@@ -647,8 +716,8 @@ async def generate_composite_preview(psd_path: str, thumbnail: bool = True) -> b
             composite = psd.composite()
 
             # Convert to RGB if needed for better compatibility
-            if composite.mode not in ('RGB', 'RGBA'):
-                composite = composite.convert('RGBA')
+            if composite.mode not in ("RGB", "RGBA"):
+                composite = composite.convert("RGBA")
 
             # Generate thumbnail if requested
             if thumbnail:
@@ -656,7 +725,7 @@ async def generate_composite_preview(psd_path: str, thumbnail: bool = True) -> b
 
             # Save to bytes
             img_buffer = io.BytesIO()
-            composite.save(img_buffer, format='PNG', optimize=True)
+            composite.save(img_buffer, format="PNG", optimize=True)
             return img_buffer.getvalue()
 
         except Exception as e:
@@ -666,7 +735,9 @@ async def generate_composite_preview(psd_path: str, thumbnail: bool = True) -> b
     return await loop.run_in_executor(None, _generate_preview)
 
 
-async def generate_expression_preview(psd_path: str, expression_name: str, thumbnail: bool = True) -> bytes:
+async def generate_expression_preview(
+    psd_path: str, expression_name: str, thumbnail: bool = True
+) -> bytes:
     """
     Generate preview image for a specific expression.
 
@@ -691,15 +762,22 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
 
             def find_expression_layer(layers, target_name):
                 for layer in layers:
-                    if hasattr(layer, 'name') and layer.name == 'Expression' and hasattr(layer, '__iter__'):
+                    if (
+                        hasattr(layer, "name")
+                        and layer.name == "Expression"
+                        and hasattr(layer, "__iter__")
+                    ):
                         # Found the Expression group, look for the target within it
                         try:
                             for expr_layer in layer:
-                                if hasattr(expr_layer, 'name') and expr_layer.name == target_name:
+                                if (
+                                    hasattr(expr_layer, "name")
+                                    and expr_layer.name == target_name
+                                ):
                                     return expr_layer
                         except:
                             pass
-                    elif hasattr(layer, '__iter__'):
+                    elif hasattr(layer, "__iter__"):
                         # Recursively search other groups
                         try:
                             found = find_expression_layer(layer, target_name)
@@ -712,23 +790,29 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
             target_layer = find_expression_layer(psd, expression_name)
 
             if not target_layer:
-                raise ValueError(f"Expression layer '{expression_name}' not found in Expression group")
+                raise ValueError(
+                    f"Expression layer '{expression_name}' not found in Expression group"
+                )
 
             # Find the Expression group and manage visibility within it
             def manage_layer_visibility(layers, target_layer_name):
                 for layer in layers:
-                    if hasattr(layer, 'name') and hasattr(layer, 'visible'):
+                    if hasattr(layer, "name") and hasattr(layer, "visible"):
                         # Save original state
                         original_visibility[layer.name] = layer.visible
 
                         # Check if this is the Expression group
-                        if layer.name == 'Expression' and hasattr(layer, '__iter__'):
+                        if layer.name == "Expression" and hasattr(layer, "__iter__"):
                             # This is the Expression group, manage child layers
                             try:
                                 for expr_layer in layer:
-                                    if hasattr(expr_layer, 'name') and hasattr(expr_layer, 'visible'):
+                                    if hasattr(expr_layer, "name") and hasattr(
+                                        expr_layer, "visible"
+                                    ):
                                         # Save original state
-                                        original_visibility[expr_layer.name] = expr_layer.visible
+                                        original_visibility[expr_layer.name] = (
+                                            expr_layer.visible
+                                        )
 
                                         # Show only the target expression, hide all others
                                         if expr_layer.name == target_layer_name:
@@ -736,10 +820,12 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
                                         else:
                                             expr_layer.visible = False
                             except Exception as e:
-                                logger.warning(f"Failed to process Expression group: {e}")
+                                logger.warning(
+                                    f"Failed to process Expression group: {e}"
+                                )
 
                     # Recursively handle other group layers
-                    if hasattr(layer, '__iter__') and layer.name != 'Expression':
+                    if hasattr(layer, "__iter__") and layer.name != "Expression":
                         try:
                             manage_layer_visibility(layer, target_layer_name)
                         except:
@@ -753,8 +839,8 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
                 composite = psd.composite()
 
                 # Convert to RGB if needed for better compatibility
-                if composite.mode not in ('RGB', 'RGBA'):
-                    composite = composite.convert('RGBA')
+                if composite.mode not in ("RGB", "RGBA"):
+                    composite = composite.convert("RGBA")
 
                 # Generate thumbnail if requested
                 if thumbnail:
@@ -762,16 +848,16 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
 
                 # Save to bytes
                 img_buffer = io.BytesIO()
-                composite.save(img_buffer, format='PNG', optimize=True)
+                composite.save(img_buffer, format="PNG", optimize=True)
                 return img_buffer.getvalue()
 
             finally:
                 # Restore original visibility states
                 def restore_visibility(layers):
                     for layer in layers:
-                        if hasattr(layer, 'name') and layer.name in original_visibility:
+                        if hasattr(layer, "name") and layer.name in original_visibility:
                             layer.visible = original_visibility[layer.name]
-                        if hasattr(layer, '__iter__'):
+                        if hasattr(layer, "__iter__"):
                             try:
                                 restore_visibility(layer)
                             except:
@@ -780,13 +866,17 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
                 restore_visibility(psd)
 
         except Exception as e:
-            logger.error(f"Error generating expression preview for {expression_name}: {e}")
+            logger.error(
+                f"Error generating expression preview for {expression_name}: {e}"
+            )
             raise
 
     return await loop.run_in_executor(None, _generate_expression_preview)
 
 
-async def generate_component_preview(psd_path: str, component_name: str, thumbnail: bool = True) -> bytes:
+async def generate_component_preview(
+    psd_path: str, component_name: str, thumbnail: bool = True
+) -> bytes:
     """
     Generate preview image for a specific component (similar to expression preview but more general).
 
@@ -812,8 +902,8 @@ async def generate_component_preview(psd_path: str, component_name: str, thumbna
                 raise ValueError(f"Component '{component_name}' could not be extracted")
 
             # Convert to RGB if needed for better compatibility
-            if component_image.mode not in ('RGB', 'RGBA'):
-                component_image = component_image.convert('RGBA')
+            if component_image.mode not in ("RGB", "RGBA"):
+                component_image = component_image.convert("RGBA")
 
             # Generate thumbnail if requested
             if thumbnail:
@@ -821,17 +911,21 @@ async def generate_component_preview(psd_path: str, component_name: str, thumbna
 
             # Save to bytes
             img_buffer = io.BytesIO()
-            component_image.save(img_buffer, format='PNG', optimize=True)
+            component_image.save(img_buffer, format="PNG", optimize=True)
             return img_buffer.getvalue()
 
         except Exception as e:
-            logger.error(f"Error generating component preview for {component_name}: {e}")
+            logger.error(
+                f"Error generating component preview for {component_name}: {e}"
+            )
             raise
 
     return await loop.run_in_executor(None, _generate_component_preview)
 
 
-async def generate_raw_layer_preview(psd_path: str, layer_name: str, thumbnail: bool = True) -> bytes:
+async def generate_raw_layer_preview(
+    psd_path: str, layer_name: str, thumbnail: bool = True
+) -> bytes:
     """
     Generate preview image for a single layer in complete isolation.
 
@@ -849,28 +943,57 @@ async def generate_raw_layer_preview(psd_path: str, layer_name: str, thumbnail: 
         try:
             from .extractor import CharacterExtractor
 
+            logger.info(
+                f"Starting raw layer preview generation for layer: '{layer_name}' in PSD: {psd_path}"
+            )
+
             # Use CharacterExtractor to extract the raw layer
             extractor = CharacterExtractor(psd_path)
+            logger.debug(f"CharacterExtractor initialized for raw layer extraction")
+
             layer_image = extractor.extract_raw_layer(layer_name)
+            logger.info(
+                f"Raw layer extraction completed for '{layer_name}', image result: {layer_image is not None}"
+            )
 
             if not layer_image:
+                logger.error(
+                    f"Layer '{layer_name}' could not be extracted - extractor returned None"
+                )
                 raise ValueError(f"Layer '{layer_name}' could not be extracted")
 
+            # Log image properties for debugging
+            logger.debug(
+                f"Extracted layer image - Size: {layer_image.size}, Mode: {layer_image.mode}"
+            )
+
             # Convert to RGB if needed for better compatibility
-            if layer_image.mode not in ('RGB', 'RGBA'):
-                layer_image = layer_image.convert('RGBA')
+            if layer_image.mode not in ("RGB", "RGBA"):
+                logger.debug(f"Converting image from {layer_image.mode} to RGBA")
+                layer_image = layer_image.convert("RGBA")
 
             # Generate thumbnail if requested
             if thumbnail:
+                original_size = layer_image.size
                 layer_image.thumbnail((256, 256), Image.Resampling.LANCZOS)
+                logger.debug(
+                    f"Generated thumbnail - Original: {original_size}, Thumbnail: {layer_image.size}"
+                )
 
             # Save to bytes
             img_buffer = io.BytesIO()
-            layer_image.save(img_buffer, format='PNG', optimize=True)
-            return img_buffer.getvalue()
+            layer_image.save(img_buffer, format="PNG", optimize=True)
+            image_bytes = img_buffer.getvalue()
+            logger.info(
+                f"Raw layer preview generated successfully - Size: {len(image_bytes)} bytes"
+            )
+            return image_bytes
 
         except Exception as e:
-            logger.error(f"Error generating raw layer preview for {layer_name}: {e}")
+            logger.error(
+                f"Error generating raw layer preview for {layer_name}: {e}",
+                exc_info=True,
+            )
             raise
 
     return await loop.run_in_executor(None, _generate_raw_layer_preview)
@@ -899,10 +1022,7 @@ async def process_psd_analysis(job_id: str):
 
         # Update job with results
         await job_manager.set_analysis_result(
-            job_id,
-            analysis_result,
-            available_expressions,
-            mapping_suggestions
+            job_id, analysis_result, available_expressions, mapping_suggestions
         )
 
         logger.info(f"Analysis completed for job {job_id}")
@@ -910,9 +1030,7 @@ async def process_psd_analysis(job_id: str):
     except Exception as e:
         logger.error(f"Analysis failed for job {job_id}: {e}")
         await job_manager.update_job_status(
-            job_id,
-            JobStatus.FAILED,
-            error_message=f"Analysis failed: {str(e)}"
+            job_id, JobStatus.FAILED, error_message=f"Analysis failed: {str(e)}"
         )
 
 
@@ -932,9 +1050,7 @@ async def process_extraction(job_id: str):
 
         # Perform extraction
         extraction_result = await extractor.extract_expressions(
-            job.psd_path,
-            job.current_mapping,
-            job.output_dir
+            job.psd_path, job.current_mapping, job.output_dir
         )
 
         # Update job with results
@@ -945,9 +1061,7 @@ async def process_extraction(job_id: str):
     except Exception as e:
         logger.error(f"Extraction failed for job {job_id}: {e}")
         await job_manager.update_job_status(
-            job_id,
-            JobStatus.FAILED,
-            error_message=f"Extraction failed: {str(e)}"
+            job_id, JobStatus.FAILED, error_message=f"Extraction failed: {str(e)}"
         )
 
 
@@ -961,6 +1075,7 @@ async def list_jobs():
 def main():
     """Main entry point for the web application."""
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
