@@ -9,10 +9,10 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.8"
 authors = [
-    {name = "PSD Character Extractor Team", email = "contact@psd-extractor.dev"},
+    {name = "abhishekslab", email = "abhishekslab@users.noreply.github.com"},
 ]
 maintainers = [
-    {name = "PSD Character Extractor Team", email = "contact@psd-extractor.dev"},
+    {name = "abhishekslab", email = "abhishekslab@users.noreply.github.com"},
 ]
 keywords = [
     "psd",
@@ -64,13 +64,12 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/psd-extractor/psd-character-extractor"
-Documentation = "https://psd-character-extractor.readthedocs.io/"
-Repository = "https://github.com/psd-extractor/psd-character-extractor.git"
-"Bug Reports" = "https://github.com/psd-extractor/psd-character-extractor/issues"
-Discussions = "https://github.com/psd-extractor/psd-character-extractor/discussions"
-Changelog = "https://github.com/psd-extractor/psd-character-extractor/blob/main/CHANGELOG.md"
-Funding = "https://github.com/sponsors/psd-extractor"
+Homepage = "https://github.com/abhishekslab/psd-character-extractor"
+Documentation = "https://github.com/abhishekslab/psd-character-extractor/blob/main/README.md"
+Repository = "https://github.com/abhishekslab/psd-character-extractor.git"
+"Bug Reports" = "https://github.com/abhishekslab/psd-character-extractor/issues"
+Discussions = "https://github.com/abhishekslab/psd-character-extractor/discussions"
+Changelog = "https://github.com/abhishekslab/psd-character-extractor/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
