@@ -1,0 +1,271 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "psd-character-extractor"
+description = "Professional tool for extracting character expressions from PSD files for VTuber applications, games, and interactive media"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "PSD Character Extractor Team", email = "contact@psd-extractor.dev"},
+]
+maintainers = [
+    {name = "PSD Character Extractor Team", email = "contact@psd-extractor.dev"},
+]
+keywords = [
+    "psd",
+    "photoshop",
+    "character",
+    "extraction",
+    "vtuber",
+    "game-development",
+    "animation",
+    "sprite",
+    "image-processing",
+    "lip-sync",
+    "expressions",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Games/Entertainment",
+    "Topic :: Artistic Software",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Natural Language :: English",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+]
+dependencies = [
+    "psd-tools>=1.9.0",
+    "Pillow>=8.0.0",
+    "click>=8.0.0",
+    "colorama>=0.4.0",
+    "tqdm>=4.60.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/psd-extractor/psd-character-extractor"
+Documentation = "https://psd-character-extractor.readthedocs.io/"
+Repository = "https://github.com/psd-extractor/psd-character-extractor.git"
+"Bug Reports" = "https://github.com/psd-extractor/psd-character-extractor/issues"
+Discussions = "https://github.com/psd-extractor/psd-character-extractor/discussions"
+Changelog = "https://github.com/psd-extractor/psd-character-extractor/blob/main/CHANGELOG.md"
+Funding = "https://github.com/sponsors/psd-extractor"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-benchmark>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "isort>=5.10.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "types-Pillow>=10.0.0",
+    "types-colorama>=0.4.15",
+    "types-tqdm>=4.66.0",
+]
+docs = [
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "sphinx-click>=4.0.0",
+    "myst-parser>=0.18.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinx-autobuild>=2021.3.14",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "coverage>=7.0.0",
+    "pytest-xdist>=3.0.0",
+]
+performance = [
+    "pytest-benchmark>=4.0.0",
+    "memory-profiler>=0.60.0",
+    "psutil>=5.9.0",
+]
+all = [
+    "psd-character-extractor[dev,docs,test,performance]",
+]
+
+[project.scripts]
+psd-extract = "psd_extractor.cli:extract_command"
+psd-analyze = "psd_extractor.cli:analyze_command"
+psd-batch = "psd_extractor.cli:batch_command"
+psd-list-expressions = "psd_extractor.cli:list_expressions"
+psd-create-mapping = "psd_extractor.cli:create_mapping"
+psd-character-extractor = "psd_extractor.cli:cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+psd_extractor = ["*.json", "*.yaml", "*.yml"]
+
+[tool.setuptools_scm]
+write_to = "src/psd_extractor/_version.py"
+fallback_version = "0.1.0"
+
+# Development tools configuration
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["psd_extractor"]
+known_third_party = ["PIL", "click", "colorama", "psd_tools", "tqdm"]
+skip_glob = ["*.pyi"]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "E501", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg-info",
+    ".venv",
+    ".mypy_cache",
+    ".pytest_cache",
+]
+per-file-ignores = [
+    "__init__.py:F401",
+    "tests/*:S101",
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "psd_tools.*",
+    "colorama.*",
+    "tqdm.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--cov=src/psd_extractor",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=70",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "cli: marks tests as CLI tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/psd_extractor"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__init__.py",
+    "*/setup.py",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "except ImportError:",
+    "except ModuleNotFoundError:",
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist"]
+skips = ["B101"]  # Skip assert_used test
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "test_*.py"]

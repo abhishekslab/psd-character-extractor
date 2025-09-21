@@ -1,0 +1,67 @@
+# MANIFEST.in
+# This file specifies additional files to include in the source distribution
+
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CONTRIBUTING.md
+include CITATION.cff
+
+# Include configuration files
+include pyproject.toml
+include setup.py
+include requirements*.txt
+include .gitignore
+
+# Include documentation
+recursive-include docs *.md *.rst *.txt *.yml *.yaml
+recursive-include docs *.png *.jpg *.jpeg *.gif *.svg
+recursive-include docs *.css *.js *.html
+
+# Include examples
+recursive-include examples *.py *.md *.json *.txt
+recursive-include examples *.png *.jpg *.jpeg *.psd
+
+# Include tests (for source distribution)
+recursive-include tests *.py
+recursive-include tests *.json *.yaml *.yml *.txt
+
+# Include GitHub workflows and configuration
+recursive-include .github *.yml *.yaml *.md
+
+# Include package data
+recursive-include src/psd_extractor *.json *.yaml *.yml *.txt
+recursive-include src/psd_extractor *.png *.jpg *.jpeg
+
+# Exclude unwanted files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .git*
+global-exclude *.egg-info
+
+# Exclude build and cache directories
+prune build
+prune dist
+prune .mypy_cache
+prune .pytest_cache
+prune .coverage
+prune htmlcov
+prune .tox
+
+# Exclude IDE files
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.swp
+global-exclude *.swo
+global-exclude *~
+
+# Exclude virtual environments
+prune venv
+prune .venv
+prune env
+prune .env
