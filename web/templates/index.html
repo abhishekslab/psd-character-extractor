@@ -53,9 +53,28 @@
                 </div>
 
                 <div class="analysis-info">
-                    <div class="psd-info" id="psd-info">
-                        <h3>File Information</h3>
-                        <!-- PSD info will be populated here -->
+                    <div class="analysis-container">
+                        <!-- PSD Preview Image -->
+                        <div class="psd-preview">
+                            <h3>PSD Preview</h3>
+                            <div class="preview-image-container">
+                                <img id="psd-composite-image" class="composite-preview" src="" alt="PSD Composite Preview" style="display: none;">
+                                <div class="preview-loading" id="preview-loading">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>Loading preview...</p>
+                                </div>
+                                <div class="preview-error" id="preview-error" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <p>Failed to load preview</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PSD File Information -->
+                        <div class="psd-info" id="psd-info">
+                            <h3>File Information</h3>
+                            <!-- PSD info will be populated here -->
+                        </div>
                     </div>
                 </div>
             </section>

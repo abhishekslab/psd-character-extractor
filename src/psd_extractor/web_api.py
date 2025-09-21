@@ -6,17 +6,21 @@ analyzing expressions, mapping them to lip sync states, and downloading results.
 """
 
 import asyncio
+import base64
+import io
 import logging
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from pydantic import BaseModel
+from PIL import Image
+from psd_tools import PSDImage
 
 from .utils.async_extractor import AsyncPSDExtractor
 from .utils.job_manager import JobManager, JobStatus
@@ -328,6 +332,245 @@ async def download_results(job_id: str):
         filename=f"expressions_{job.psd_filename}_{job_id[:8]}.zip",
         media_type="application/zip"
     )
+
+
+@app.get("/api/preview/{job_id}/composite")
+async def get_composite_preview(job_id: str, thumbnail: bool = True):
+    """
+    Get composite preview image of the PSD file.
+
+    Args:
+        job_id: Job identifier
+        thumbnail: Whether to return a thumbnail (256x256) or full size
+
+    Returns:
+        PNG image of the PSD composite
+    """
+    job = await job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not Path(job.psd_path).exists():
+        raise HTTPException(status_code=404, detail="PSD file not found")
+
+    try:
+        # Generate preview image
+        image_bytes = await generate_composite_preview(job.psd_path, thumbnail)
+
+        return Response(
+            content=image_bytes,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename=\"{job_id}_composite.png\""
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate composite preview for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
+
+
+@app.get("/api/preview/{job_id}/expression/{expression_name}")
+async def get_expression_preview(job_id: str, expression_name: str, thumbnail: bool = True):
+    """
+    Get preview image of a specific expression.
+
+    Args:
+        job_id: Job identifier
+        expression_name: Name of the expression layer to preview
+        thumbnail: Whether to return a thumbnail (256x256) or full size
+
+    Returns:
+        PNG image of the expression preview
+    """
+    job = await job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not Path(job.psd_path).exists():
+        raise HTTPException(status_code=404, detail="PSD file not found")
+
+    # Check if expression exists in available expressions
+    if not job.available_expressions or expression_name not in job.available_expressions:
+        raise HTTPException(status_code=404, detail=f"Expression '{expression_name}' not found")
+
+    try:
+        # Generate expression preview image
+        image_bytes = await generate_expression_preview(job.psd_path, expression_name, thumbnail)
+
+        return Response(
+            content=image_bytes,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename=\"{job_id}_{expression_name}.png\""
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate expression preview for {expression_name} in job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate expression preview: {str(e)}")
+
+
+# Utility functions for image processing
+async def generate_composite_preview(psd_path: str, thumbnail: bool = True) -> bytes:
+    """
+    Generate composite preview image from PSD file.
+
+    Args:
+        psd_path: Path to the PSD file
+        thumbnail: Whether to generate thumbnail size
+
+    Returns:
+        PNG image data as bytes
+    """
+    loop = asyncio.get_event_loop()
+
+    def _generate_preview():
+        try:
+            # Load PSD and create composite
+            psd = PSDImage.open(psd_path)
+            composite = psd.composite()
+
+            # Convert to RGB if needed for better compatibility
+            if composite.mode not in ('RGB', 'RGBA'):
+                composite = composite.convert('RGBA')
+
+            # Generate thumbnail if requested
+            if thumbnail:
+                composite.thumbnail((256, 256), Image.Resampling.LANCZOS)
+
+            # Save to bytes
+            img_buffer = io.BytesIO()
+            composite.save(img_buffer, format='PNG', optimize=True)
+            return img_buffer.getvalue()
+
+        except Exception as e:
+            logger.error(f"Error generating preview for {psd_path}: {e}")
+            raise
+
+    return await loop.run_in_executor(None, _generate_preview)
+
+
+async def generate_expression_preview(psd_path: str, expression_name: str, thumbnail: bool = True) -> bytes:
+    """
+    Generate preview image for a specific expression.
+
+    Args:
+        psd_path: Path to the PSD file
+        expression_name: Name of the expression layer to render
+        thumbnail: Whether to generate thumbnail size
+
+    Returns:
+        PNG image data as bytes
+    """
+    loop = asyncio.get_event_loop()
+
+    def _generate_expression_preview():
+        try:
+            # Load PSD
+            psd = PSDImage.open(psd_path)
+
+            # Find the target expression layer specifically in the Expression group
+            target_layer = None
+            original_visibility = {}
+
+            def find_expression_layer(layers, target_name):
+                for layer in layers:
+                    if hasattr(layer, 'name') and layer.name == 'Expression' and hasattr(layer, '__iter__'):
+                        # Found the Expression group, look for the target within it
+                        try:
+                            for expr_layer in layer:
+                                if hasattr(expr_layer, 'name') and expr_layer.name == target_name:
+                                    return expr_layer
+                        except:
+                            pass
+                    elif hasattr(layer, '__iter__'):
+                        # Recursively search other groups
+                        try:
+                            found = find_expression_layer(layer, target_name)
+                            if found:
+                                return found
+                        except:
+                            pass
+                return None
+
+            target_layer = find_expression_layer(psd, expression_name)
+
+            if not target_layer:
+                raise ValueError(f"Expression layer '{expression_name}' not found in Expression group")
+
+            # Find the Expression group and manage visibility within it
+            def manage_layer_visibility(layers, target_layer_name):
+                for layer in layers:
+                    if hasattr(layer, 'name') and hasattr(layer, 'visible'):
+                        # Save original state
+                        original_visibility[layer.name] = layer.visible
+
+                        # Check if this is the Expression group
+                        if layer.name == 'Expression' and hasattr(layer, '__iter__'):
+                            # This is the Expression group, manage child layers
+                            try:
+                                for expr_layer in layer:
+                                    if hasattr(expr_layer, 'name') and hasattr(expr_layer, 'visible'):
+                                        # Save original state
+                                        original_visibility[expr_layer.name] = expr_layer.visible
+
+                                        # Show only the target expression, hide all others
+                                        if expr_layer.name == target_layer_name:
+                                            expr_layer.visible = True
+                                        else:
+                                            expr_layer.visible = False
+                            except Exception as e:
+                                logger.warning(f"Failed to process Expression group: {e}")
+
+                    # Recursively handle other group layers
+                    if hasattr(layer, '__iter__') and layer.name != 'Expression':
+                        try:
+                            manage_layer_visibility(layer, target_layer_name)
+                        except:
+                            pass
+
+            try:
+                # Manage layer visibility
+                manage_layer_visibility(psd, target_layer.name)
+
+                # Generate composite
+                composite = psd.composite()
+
+                # Convert to RGB if needed for better compatibility
+                if composite.mode not in ('RGB', 'RGBA'):
+                    composite = composite.convert('RGBA')
+
+                # Generate thumbnail if requested
+                if thumbnail:
+                    composite.thumbnail((256, 256), Image.Resampling.LANCZOS)
+
+                # Save to bytes
+                img_buffer = io.BytesIO()
+                composite.save(img_buffer, format='PNG', optimize=True)
+                return img_buffer.getvalue()
+
+            finally:
+                # Restore original visibility states
+                def restore_visibility(layers):
+                    for layer in layers:
+                        if hasattr(layer, 'name') and layer.name in original_visibility:
+                            layer.visible = original_visibility[layer.name]
+                        if hasattr(layer, '__iter__'):
+                            try:
+                                restore_visibility(layer)
+                            except:
+                                pass
+
+                restore_visibility(psd)
+
+        except Exception as e:
+            logger.error(f"Error generating expression preview for {expression_name}: {e}")
+            raise
+
+    return await loop.run_in_executor(None, _generate_expression_preview)
 
 
 # Background processing functions

@@ -33,6 +33,9 @@ class PSDCharacterExtractor {
 
         // Analysis elements
         this.psdInfo = document.getElementById('psd-info');
+        this.psdCompositeImage = document.getElementById('psd-composite-image');
+        this.previewLoading = document.getElementById('preview-loading');
+        this.previewError = document.getElementById('preview-error');
 
         // Mapping elements
         this.availableExpressionsContainer = document.getElementById('available-expressions');
@@ -266,7 +269,42 @@ class PSDCharacterExtractor {
             </div>
         `;
 
+        // Load and display preview image
+        this.loadCompositePreview();
+
         this.showSection('analysis');
+    }
+
+    async loadCompositePreview() {
+        try {
+            // Show loading state
+            this.previewLoading.style.display = 'flex';
+            this.previewError.style.display = 'none';
+            this.psdCompositeImage.style.display = 'none';
+
+            // Construct preview URL
+            const previewUrl = `/api/preview/${this.currentJobId}/composite`;
+
+            // Set image source and handle loading
+            this.psdCompositeImage.onload = () => {
+                this.previewLoading.style.display = 'none';
+                this.psdCompositeImage.style.display = 'block';
+            };
+
+            this.psdCompositeImage.onerror = () => {
+                this.previewLoading.style.display = 'none';
+                this.previewError.style.display = 'flex';
+                console.error('Failed to load composite preview');
+            };
+
+            // Load the image
+            this.psdCompositeImage.src = previewUrl;
+
+        } catch (error) {
+            console.error('Error loading composite preview:', error);
+            this.previewLoading.style.display = 'none';
+            this.previewError.style.display = 'flex';
+        }
     }
 
     // Expression Mapping
@@ -312,10 +350,31 @@ class PSDCharacterExtractor {
         element.draggable = true;
         element.dataset.expression = expressionName;
 
-        element.innerHTML = `
-            <i class="fas fa-grip-vertical expression-icon"></i>
-            <span>${expressionName}</span>
-        `;
+        // Create thumbnail element
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'expression-thumbnail loading';
+        thumbnail.innerHTML = '<i class="fas fa-image"></i>';
+
+        // Create content element
+        const content = document.createElement('div');
+        content.className = 'expression-content';
+
+        const name = document.createElement('div');
+        name.className = 'expression-name';
+        name.textContent = expressionName;
+
+        const meta = document.createElement('div');
+        meta.className = 'expression-meta';
+        meta.innerHTML = '<i class="fas fa-grip-vertical expression-icon"></i>Drag to category';
+
+        content.appendChild(name);
+        content.appendChild(meta);
+
+        element.appendChild(thumbnail);
+        element.appendChild(content);
+
+        // Load thumbnail image
+        this.loadExpressionThumbnail(thumbnail, expressionName);
 
         // Add drag event listeners
         element.addEventListener('dragstart', (e) => this.handleExpressionDragStart(e));
@@ -324,14 +383,55 @@ class PSDCharacterExtractor {
         return element;
     }
 
+    async loadExpressionThumbnail(thumbnailElement, expressionName) {
+        try {
+            // Construct preview URL
+            const previewUrl = `/api/preview/${this.currentJobId}/expression/${encodeURIComponent(expressionName)}`;
+
+            // Create image element
+            const img = document.createElement('img');
+            img.className = 'expression-thumbnail';
+            img.alt = expressionName;
+
+            img.onload = () => {
+                // Replace loading placeholder with actual image
+                thumbnailElement.replaceWith(img);
+                img.parentElement.classList.add('has-thumbnail');
+            };
+
+            img.onerror = () => {
+                // Keep loading placeholder but update to error state
+                thumbnailElement.className = 'expression-thumbnail loading error';
+                thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                thumbnailElement.title = 'Failed to load preview';
+            };
+
+            // Load the image
+            img.src = previewUrl;
+
+        } catch (error) {
+            console.error(`Error loading thumbnail for ${expressionName}:`, error);
+            thumbnailElement.className = 'expression-thumbnail loading error';
+            thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        }
+    }
+
     // Drag and Drop for Mapping
     handleExpressionDragStart(e) {
-        e.dataTransfer.setData('text/plain', e.target.dataset.expression);
-        e.target.classList.add('dragging');
+        // Find the expression item element (in case drag started on a child element)
+        const expressionItem = e.target.closest('.expression-item');
+        if (expressionItem) {
+            e.dataTransfer.setData('text/plain', expressionItem.dataset.expression);
+            expressionItem.classList.add('dragging');
+        }
     }
 
     handleExpressionDragEnd(e) {
-        e.target.classList.remove('dragging');
+        // Find the expression item element (in case drag ended on a child element)
+        const expressionItem = e.target.closest('.expression-item');
+        if (expressionItem) {
+            expressionItem.classList.remove('dragging');
+        }
     }
 
     handleCategoryDragOver(e) {
