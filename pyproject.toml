@@ -107,8 +107,15 @@ performance = [
     "memory-profiler>=0.60.0",
     "psutil>=5.9.0",
 ]
+web = [
+    "fastapi>=0.68.0",
+    "uvicorn[standard]>=0.15.0",
+    "python-multipart>=0.0.5",
+    "aiofiles>=0.7.0",
+    "jinja2>=3.0.0",
+]
 all = [
-    "psd-character-extractor[dev,docs,test,performance]",
+    "psd-character-extractor[dev,docs,test,performance,web]",
 ]
 
 [project.scripts]
@@ -121,6 +128,7 @@ psd-ingest = "psd_extractor.cli:ingest"
 psd-graph = "psd_extractor.cli:graph"
 psd-preview = "psd_extractor.cli:preview"
 psd-scan = "psd_extractor.cli:scan"
+psd-web = "psd_extractor.web_api:main"
 psd-character-extractor = "psd_extractor.cli:cli"
 
 [tool.setuptools]

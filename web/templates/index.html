@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSD Character Extractor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-magic"></i> PSD Character Extractor</h1>
+            <p>Extract character expressions from PSD files for VTuber applications and games</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Step 1: File Upload -->
+            <section id="upload-section" class="step-section active">
+                <div class="step-header">
+                    <h2><span class="step-number">1</span> Upload PSD File</h2>
+                </div>
+
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="upload-text">
+                        <h3>Drag & drop your PSD file here</h3>
+                        <p>or <button class="upload-button" id="upload-button">Choose File</button></p>
+                        <small>Supports .psd files up to 100MB</small>
+                    </div>
+                    <input type="file" id="file-input" accept=".psd" style="display: none;">
+                </div>
+
+                <div class="upload-progress" id="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-text">Uploading...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Analysis Results -->
+            <section id="analysis-section" class="step-section" style="display: none;">
+                <div class="step-header">
+                    <h2><span class="step-number">2</span> PSD Analysis Results</h2>
+                </div>
+
+                <div class="analysis-info">
+                    <div class="psd-info" id="psd-info">
+                        <h3>File Information</h3>
+                        <!-- PSD info will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Expression Mapping -->
+            <section id="mapping-section" class="step-section" style="display: none;">
+                <div class="step-header">
+                    <h2><span class="step-number">3</span> Map Expressions to Lip Sync States</h2>
+                    <p>Drag expressions to the appropriate lip sync categories</p>
+                </div>
+
+                <div class="mapping-container">
+                    <!-- Available Expressions -->
+                    <div class="expressions-panel">
+                        <h3>Available Expressions</h3>
+                        <div class="expressions-list" id="available-expressions">
+                            <!-- Expression items will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Lip Sync Categories -->
+                    <div class="categories-panel">
+                        <h3>Lip Sync Categories</h3>
+
+                        <div class="category-group">
+                            <div class="category-box" data-category="closed">
+                                <div class="category-header">
+                                    <h4><i class="fas fa-moon"></i> Closed</h4>
+                                    <p>Mouth closed, neutral expressions</p>
+                                </div>
+                                <div class="category-items" id="category-closed">
+                                    <!-- Mapped expressions will appear here -->
+                                </div>
+                            </div>
+
+                            <div class="category-box" data-category="small">
+                                <div class="category-header">
+                                    <h4><i class="fas fa-smile"></i> Small</h4>
+                                    <p>Slight mouth opening, smiles</p>
+                                </div>
+                                <div class="category-items" id="category-small">
+                                    <!-- Mapped expressions will appear here -->
+                                </div>
+                            </div>
+
+                            <div class="category-box" data-category="medium">
+                                <div class="category-header">
+                                    <h4><i class="fas fa-comment"></i> Medium</h4>
+                                    <p>Medium mouth opening, talking</p>
+                                </div>
+                                <div class="category-items" id="category-medium">
+                                    <!-- Mapped expressions will appear here -->
+                                </div>
+                            </div>
+
+                            <div class="category-box" data-category="wide">
+                                <div class="category-header">
+                                    <h4><i class="fas fa-surprise"></i> Wide</h4>
+                                    <p>Wide mouth opening, surprise, laughter</p>
+                                </div>
+                                <div class="category-items" id="category-wide">
+                                    <!-- Mapped expressions will appear here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mapping-actions">
+                            <button class="btn btn-secondary" id="reset-mapping">
+                                <i class="fas fa-undo"></i> Reset to Suggestions
+                            </button>
+                            <button class="btn btn-primary" id="start-extraction">
+                                <i class="fas fa-play"></i> Start Extraction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Extraction Results -->
+            <section id="results-section" class="step-section" style="display: none;">
+                <div class="step-header">
+                    <h2><span class="step-number">4</span> Extraction Results</h2>
+                </div>
+
+                <div class="extraction-progress" id="extraction-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="extraction-progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="extraction-progress-text">Extracting expressions...</span>
+                        <span id="extraction-progress-percent">0%</span>
+                    </div>
+                </div>
+
+                <div class="results-content" id="results-content" style="display: none;">
+                    <div class="results-summary">
+                        <h3>Extraction Complete!</h3>
+                        <p>Your character expressions have been successfully extracted and organized.</p>
+                    </div>
+
+                    <div class="results-grid" id="results-grid">
+                        <!-- Extraction results will be populated here -->
+                    </div>
+
+                    <div class="download-section">
+                        <button class="btn btn-success btn-large" id="download-button">
+                            <i class="fas fa-download"></i> Download All Expressions
+                        </button>
+                        <p>Download a ZIP file containing all extracted expressions organized by category.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Status Messages -->
+        <div class="status-messages" id="status-messages">
+            <!-- Status messages will appear here -->
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p id="loading-text">Processing...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
