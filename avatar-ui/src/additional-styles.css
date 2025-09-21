@@ -1,0 +1,324 @@
+/* Main content styles */
+.main-content {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.main-content h2 {
+  color: #212529;
+  margin-bottom: 8px;
+}
+
+.main-content p {
+  color: #6c757d;
+  margin-bottom: 32px;
+}
+
+.slot-palette-preview {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.slot-palette-preview h3 {
+  margin: 0 0 16px 0;
+  color: #495057;
+  font-size: 18px;
+}
+
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.part-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.part-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.part-card h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.slots-count {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.next-steps {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.next-steps h3 {
+  margin: 0 0 16px 0;
+  color: #495057;
+  font-size: 18px;
+}
+
+.next-steps ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.next-steps li {
+  padding: 8px 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.next-steps li:before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: #6c757d;
+  border-radius: 50%;
+}
+
+/* Tab buttons */
+.tab-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-button {
+  padding: 8px 16px;
+  border: 1px solid #ced4da;
+  background: #f8f9fa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #495057;
+}
+
+.tab-button:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.tab-button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+/* Wardrobe layout */
+.wardrobe-layout {
+  padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Clean Architecture App Styles */
+.avatar-info {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.avatar-info h2 {
+  margin: 0 0 12px 0;
+  color: #495057;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.slices-section,
+.mapping-section,
+.mapped-section {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.slices-section h3,
+.mapping-section h3,
+.mapped-section h3 {
+  margin: 0 0 16px 0;
+  color: #495057;
+}
+
+.slices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.slice-card {
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.slice-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.slice-preview {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.slice-preview canvas {
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+.slice-info {
+  text-align: center;
+}
+
+.slice-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+.slice-path {
+  font-size: 10px;
+  color: #6c757d;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slice-size {
+  font-size: 10px;
+  color: #868e96;
+}
+
+.quick-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.slot-button {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.slot-button:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+}
+
+.slot-button.selected {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.mapping-helper {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.mapping-helper h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+}
+
+.unmapped-for-mapping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.slice-mapping-button {
+  padding: 8px 16px;
+  border: 1px solid #28a745;
+  background: #28a745;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.slice-mapping-button:hover {
+  background: #218838;
+  border-color: #218838;
+}
+
+.mapped-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.mapped-slice {
+  border: 1px solid #28a745;
+  background: #f8fff9;
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+
+.mapped-preview {
+  margin-bottom: 6px;
+}
+
+.mapped-preview canvas {
+  border: 1px solid #28a745;
+  border-radius: 3px;
+}
+
+.mapped-info {
+  text-align: center;
+}
+
+.mapped-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #495057;
+}

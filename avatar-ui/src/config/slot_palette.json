@@ -1,0 +1,55 @@
+{
+  "Body": {
+    "torso": {},
+    "arms": {},
+    "legs": {}
+  },
+  "Head": {
+    "base": {},
+    "neck": {}
+  },
+  "Hair": {
+    "back": {},
+    "mid": {},
+    "front": {},
+    "accessory": {}
+  },
+  "Eyes": {
+    "EyeL": {
+      "state": ["open","half","closed"]
+    },
+    "EyeR": {
+      "state": ["open","half","closed"]
+    },
+    "IrisL": {},
+    "IrisR": {},
+    "BrowL": {
+      "shape": ["neutral","up","down","angry","sad"]
+    },
+    "BrowR": {
+      "shape": ["neutral","up","down","angry","sad"]
+    }
+  },
+  "Mouth": {
+    "viseme": ["REST","AI","E","U","O","FV","L","WQ","MBP","SIL"],
+    "emotion": ["neutral","smile","frown","angry","sad","joy"]
+  },
+  "Nose": {
+    "base": {},
+    "shadow": {}
+  },
+  "Cheek": {
+    "blush": {},
+    "shadow": {}
+  },
+  "Accessories": {
+    "glasses": {},
+    "earrings": {},
+    "hats": {},
+    "masks": {}
+  },
+  "FX": {
+    "sparkles": {},
+    "highlights": {}
+  }
+}
