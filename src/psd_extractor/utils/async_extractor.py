@@ -75,6 +75,50 @@ class AsyncPSDExtractor:
 
         return await loop.run_in_executor(self.executor, _get_expressions)
 
+    async def get_all_components(self, psd_path: str) -> Dict[str, List[Dict[str, any]]]:
+        """
+        Get all character components from PSD file asynchronously.
+
+        Args:
+            psd_path: Path to the PSD file
+
+        Returns:
+            Dictionary mapping component categories to lists of component details
+        """
+        loop = asyncio.get_event_loop()
+
+        def _get_components():
+            try:
+                extractor = CharacterExtractor(psd_path)
+                return extractor.get_all_components()
+            except Exception as e:
+                logger.error(f"Failed to get components from {psd_path}: {e}")
+                raise
+
+        return await loop.run_in_executor(self.executor, _get_components)
+
+    async def get_extractable_components(self, psd_path: str) -> List[Dict[str, any]]:
+        """
+        Get extractable components from PSD file asynchronously.
+
+        Args:
+            psd_path: Path to the PSD file
+
+        Returns:
+            List of extractable component details
+        """
+        loop = asyncio.get_event_loop()
+
+        def _get_extractable():
+            try:
+                extractor = CharacterExtractor(psd_path)
+                return extractor.get_extractable_components()
+            except Exception as e:
+                logger.error(f"Failed to get extractable components from {psd_path}: {e}")
+                raise
+
+        return await loop.run_in_executor(self.executor, _get_extractable)
+
     async def extract_expressions(
         self,
         psd_path: str,
@@ -145,15 +189,86 @@ class AsyncPSDExtractor:
 
         return await loop.run_in_executor(self.executor, _extract)
 
+    async def extract_components(
+        self,
+        psd_path: str,
+        component_mapping: Dict[str, List[str]],
+        output_dir: str
+    ) -> Dict[str, Dict]:
+        """
+        Extract individual components asynchronously.
+
+        Args:
+            psd_path: Path to the PSD file
+            component_mapping: Mapping of categories to component names
+            output_dir: Output directory for extracted images
+
+        Returns:
+            Dictionary containing extraction results with file paths
+        """
+        loop = asyncio.get_event_loop()
+
+        def _extract_components():
+            try:
+                extractor = CharacterExtractor(psd_path)
+                output_path = Path(output_dir)
+                output_path.mkdir(parents=True, exist_ok=True)
+
+                results = {}
+
+                # Extract components for each category
+                for category, component_names in component_mapping.items():
+                    category_results = []
+
+                    for comp_name in component_names:
+                        try:
+                            # Extract the component
+                            image = extractor.extract_component(comp_name)
+
+                            if image:
+                                # Save the image
+                                safe_name = comp_name.replace(" ", "_").lower()
+                                filename = f"{category}_{safe_name}.png"
+                                filepath = output_path / filename
+
+                                # Optimize for web if needed
+                                optimized = extractor.optimizer.optimize_for_web(image)
+                                optimized.save(filepath, "PNG")
+
+                                category_results.append({
+                                    "name": comp_name,
+                                    "filename": filename,
+                                    "filepath": str(filepath),
+                                    "size": image.size
+                                })
+
+                                logger.info(f"Extracted {comp_name} -> {filename}")
+                            else:
+                                logger.warning(f"Failed to extract component: {comp_name}")
+
+                        except Exception as e:
+                            logger.error(f"Error extracting component {comp_name}: {e}")
+
+                    results[category] = category_results
+
+                return results
+
+            except Exception as e:
+                logger.error(f"Failed to extract components from {psd_path}: {e}")
+                raise
+
+        return await loop.run_in_executor(self.executor, _extract_components)
+
     async def create_mapping_suggestions(self, psd_path: str) -> Dict[str, List[str]]:
         """
         Create automatic mapping suggestions based on layer names.
+        Now supports both expression mapping and component organization.
 
         Args:
             psd_path: Path to the PSD file
 
         Returns:
-            Dictionary with suggested mappings
+            Dictionary with suggested mappings for expressions
         """
         loop = asyncio.get_event_loop()
 
@@ -162,7 +277,7 @@ class AsyncPSDExtractor:
                 analyzer = PSDAnalyzer(psd_path)
                 expressions = analyzer.find_expression_layers()
 
-                # Use default mapping as base
+                # Use default mapping as base for expressions (for backward compatibility)
                 suggestions = {
                     'closed': [],
                     'small': [],
@@ -200,6 +315,37 @@ class AsyncPSDExtractor:
                 raise
 
         return await loop.run_in_executor(self.executor, _suggest_mapping)
+
+    async def create_component_organization(self, psd_path: str) -> Dict[str, List[str]]:
+        """
+        Create automatic component organization suggestions.
+
+        Args:
+            psd_path: Path to the PSD file
+
+        Returns:
+            Dictionary with suggested component organization by category
+        """
+        loop = asyncio.get_event_loop()
+
+        def _organize_components():
+            try:
+                analyzer = PSDAnalyzer(psd_path)
+                all_components = analyzer.find_all_components()
+
+                # Convert to simple name lists for organization
+                organization = {}
+                for category, components in all_components.items():
+                    if components:  # Only include categories with components
+                        organization[category] = [comp["name"] for comp in components if comp["type"] == "LAYER"]
+
+                return organization
+
+            except Exception as e:
+                logger.error(f"Failed to create component organization for {psd_path}: {e}")
+                raise
+
+        return await loop.run_in_executor(self.executor, _organize_components)
 
     def close(self):
         """Clean up the executor."""

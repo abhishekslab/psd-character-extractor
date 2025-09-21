@@ -96,15 +96,16 @@ class TestCharacterExtractor(unittest.TestCase):
         mock_analyzer_instance.get_expression_group.return_value = mock_expression_group
 
         mock_target_layer = Mock()
-        mock_target_layer.visible = False
+        original_visibility = False
+        mock_target_layer.visible = original_visibility
         mock_analyzer_instance.get_layer_by_name.return_value = mock_target_layer
 
         extractor = CharacterExtractor(self.mock_psd_path)
         result = extractor.extract_expression("Smile")
 
         self.assertEqual(result, mock_composite_image)
-        # Verify layer visibility was managed
-        self.assertTrue(mock_target_layer.visible)
+        # Verify layer visibility was restored to original state
+        self.assertEqual(mock_target_layer.visible, original_visibility)
 
     @patch('src.psd_extractor.extractor.PSDAnalyzer')
     @patch('src.psd_extractor.extractor.PSDImage')

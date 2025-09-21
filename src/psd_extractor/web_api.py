@@ -62,6 +62,9 @@ class AnalysisResponse(BaseModel):
     available_expressions: List[str]
     mapping_suggestions: Dict[str, List[str]]
     current_mapping: Dict[str, List[str]]
+    all_components: Dict[str, List[Dict]]
+    component_statistics: Dict[str, Dict]
+    extractable_components: List[Dict]
 
 
 class MappingUpdate(BaseModel):
@@ -74,6 +77,13 @@ class ExtractionResponse(BaseModel):
     job_id: str
     status: str
     results: Dict[str, List[Dict]]
+
+
+class RawLayersResponse(BaseModel):
+    """Response model for raw layers."""
+    job_id: str
+    status: str
+    raw_layers: List[Dict]
 
 
 # Application lifecycle
@@ -187,13 +197,71 @@ async def get_analysis_results(job_id: str):
             detail=f"Analysis not ready. Current status: {job.status.value}"
         )
 
+    # Get component data from analysis result
+    analysis_result = job.analysis_result or {}
+    component_analysis = analysis_result.get('component_analysis', {})
+
+    # Clean component data for serialization (remove layer_object references)
+    cleaned_components = {}
+    component_stats = {}
+    extractable_components = []
+
+    for category, components in component_analysis.items():
+        cleaned_category_components = []
+        extractable_count = 0
+
+        for comp in components:
+            # Create clean component data without layer_object
+            clean_comp = {
+                "name": comp["name"],
+                "visible": comp.get("visible", False),
+                "type": comp.get("type", "LAYER"),
+                "width": comp.get("width", 0),
+                "height": comp.get("height", 0),
+                "x": comp.get("x", 0),
+                "y": comp.get("y", 0),
+            }
+
+            # Add children_count for groups
+            if comp.get("type") == "GROUP":
+                clean_comp["children_count"] = comp.get("children_count", 0)
+
+            cleaned_category_components.append(clean_comp)
+
+            # Count extractable components
+            if comp.get("type") == "LAYER":
+                extractable_count += 1
+                extractable_components.append({
+                    "name": comp["name"],
+                    "category": category,
+                    "visible": comp.get("visible", False),
+                    "dimensions": {
+                        "width": comp.get("width", 0),
+                        "height": comp.get("height", 0),
+                        "x": comp.get("x", 0),
+                        "y": comp.get("y", 0)
+                    }
+                })
+
+        cleaned_components[category] = cleaned_category_components
+
+        if extractable_count > 0:
+            component_stats[category] = {
+                "total": len(components),
+                "extractable": extractable_count,
+                "components": [c["name"] for c in components if c.get("type") == "LAYER"]
+            }
+
     return AnalysisResponse(
         job_id=job.id,
         status=job.status.value,
-        psd_info=job.analysis_result.get('basic_info', {}) if job.analysis_result else {},
+        psd_info=analysis_result.get('basic_info', {}),
         available_expressions=job.available_expressions or [],
         mapping_suggestions=job.mapping_suggestions or {},
-        current_mapping=job.current_mapping or {}
+        current_mapping=job.current_mapping or {},
+        all_components=cleaned_components,
+        component_statistics=component_stats,
+        extractable_components=extractable_components
     )
 
 
@@ -369,6 +437,151 @@ async def get_composite_preview(job_id: str, thumbnail: bool = True):
     except Exception as e:
         logger.error(f"Failed to generate composite preview for job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
+
+
+@app.get("/api/preview/{job_id}/component/{component_name}")
+async def get_component_preview(job_id: str, component_name: str, thumbnail: bool = True):
+    """
+    Get preview image of a specific component (expressions, hair, clothing, etc.).
+
+    Args:
+        job_id: Job identifier
+        component_name: Name of the component layer to preview
+        thumbnail: Whether to return a thumbnail (256x256) or full size
+
+    Returns:
+        PNG image of the component preview
+    """
+    job = await job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not Path(job.psd_path).exists():
+        raise HTTPException(status_code=404, detail="PSD file not found")
+
+    # Check if component exists in available components
+    analysis_result = job.analysis_result or {}
+    component_analysis = analysis_result.get('component_analysis', {})
+
+    component_found = False
+    for category, components in component_analysis.items():
+        if any(comp["name"] == component_name for comp in components):
+            component_found = True
+            break
+
+    if not component_found:
+        raise HTTPException(status_code=404, detail=f"Component '{component_name}' not found")
+
+    try:
+        # Generate component preview image
+        image_bytes = await generate_component_preview(job.psd_path, component_name, thumbnail)
+
+        return Response(
+            content=image_bytes,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename=\"{job_id}_{component_name}.png\""
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate component preview for {component_name} in job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate component preview: {str(e)}")
+
+
+@app.get("/api/raw-layers/{job_id}", response_model=RawLayersResponse)
+async def get_raw_layers(job_id: str):
+    """
+    Get all PSD layers as a flat list without classification.
+
+    Args:
+        job_id: Job identifier
+
+    Returns:
+        Raw layers list
+    """
+    job = await job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status not in [JobStatus.READY_FOR_MAPPING, JobStatus.COMPLETED]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Analysis not ready. Current status: {job.status.value}"
+        )
+
+    if not Path(job.psd_path).exists():
+        raise HTTPException(status_code=404, detail="PSD file not found")
+
+    try:
+        from .extractor import CharacterExtractor
+
+        # Get raw layers without classification
+        extractor = CharacterExtractor(job.psd_path)
+        raw_layers = extractor.get_raw_layers()
+
+        # Clean the data for serialization (remove any problematic fields)
+        cleaned_layers = []
+        for layer in raw_layers:
+            cleaned_layer = {
+                "name": layer["name"],
+                "visible": layer.get("visible", False),
+                "type": layer.get("type", "LAYER"),
+                "width": layer.get("width", 0),
+                "height": layer.get("height", 0),
+                "x": layer.get("x", 0),
+                "y": layer.get("y", 0),
+            }
+            cleaned_layers.append(cleaned_layer)
+
+        return RawLayersResponse(
+            job_id=job.id,
+            status=job.status.value,
+            raw_layers=cleaned_layers
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get raw layers for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get raw layers: {str(e)}")
+
+
+@app.get("/api/raw-preview/{job_id}/{layer_name}")
+async def get_raw_layer_preview(job_id: str, layer_name: str, thumbnail: bool = True):
+    """
+    Get preview image of a single layer in complete isolation.
+
+    Args:
+        job_id: Job identifier
+        layer_name: Name of the layer to preview
+        thumbnail: Whether to return a thumbnail (256x256) or full size
+
+    Returns:
+        PNG image of the isolated layer
+    """
+    job = await job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not Path(job.psd_path).exists():
+        raise HTTPException(status_code=404, detail="PSD file not found")
+
+    try:
+        # Generate isolated layer preview image
+        image_bytes = await generate_raw_layer_preview(job.psd_path, layer_name, thumbnail)
+
+        return Response(
+            content=image_bytes,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename=\"{job_id}_{layer_name}_raw.png\""
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate raw layer preview for {layer_name} in job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate raw layer preview: {str(e)}")
 
 
 @app.get("/api/preview/{job_id}/expression/{expression_name}")
@@ -571,6 +784,96 @@ async def generate_expression_preview(psd_path: str, expression_name: str, thumb
             raise
 
     return await loop.run_in_executor(None, _generate_expression_preview)
+
+
+async def generate_component_preview(psd_path: str, component_name: str, thumbnail: bool = True) -> bytes:
+    """
+    Generate preview image for a specific component (similar to expression preview but more general).
+
+    Args:
+        psd_path: Path to the PSD file
+        component_name: Name of the component layer to render
+        thumbnail: Whether to generate thumbnail size
+
+    Returns:
+        PNG image data as bytes
+    """
+    loop = asyncio.get_event_loop()
+
+    def _generate_component_preview():
+        try:
+            from .extractor import CharacterExtractor
+
+            # Use CharacterExtractor to extract the component
+            extractor = CharacterExtractor(psd_path)
+            component_image = extractor.extract_component(component_name)
+
+            if not component_image:
+                raise ValueError(f"Component '{component_name}' could not be extracted")
+
+            # Convert to RGB if needed for better compatibility
+            if component_image.mode not in ('RGB', 'RGBA'):
+                component_image = component_image.convert('RGBA')
+
+            # Generate thumbnail if requested
+            if thumbnail:
+                component_image.thumbnail((256, 256), Image.Resampling.LANCZOS)
+
+            # Save to bytes
+            img_buffer = io.BytesIO()
+            component_image.save(img_buffer, format='PNG', optimize=True)
+            return img_buffer.getvalue()
+
+        except Exception as e:
+            logger.error(f"Error generating component preview for {component_name}: {e}")
+            raise
+
+    return await loop.run_in_executor(None, _generate_component_preview)
+
+
+async def generate_raw_layer_preview(psd_path: str, layer_name: str, thumbnail: bool = True) -> bytes:
+    """
+    Generate preview image for a single layer in complete isolation.
+
+    Args:
+        psd_path: Path to the PSD file
+        layer_name: Name of the layer to render
+        thumbnail: Whether to generate thumbnail size
+
+    Returns:
+        PNG image data as bytes
+    """
+    loop = asyncio.get_event_loop()
+
+    def _generate_raw_layer_preview():
+        try:
+            from .extractor import CharacterExtractor
+
+            # Use CharacterExtractor to extract the raw layer
+            extractor = CharacterExtractor(psd_path)
+            layer_image = extractor.extract_raw_layer(layer_name)
+
+            if not layer_image:
+                raise ValueError(f"Layer '{layer_name}' could not be extracted")
+
+            # Convert to RGB if needed for better compatibility
+            if layer_image.mode not in ('RGB', 'RGBA'):
+                layer_image = layer_image.convert('RGBA')
+
+            # Generate thumbnail if requested
+            if thumbnail:
+                layer_image.thumbnail((256, 256), Image.Resampling.LANCZOS)
+
+            # Save to bytes
+            img_buffer = io.BytesIO()
+            layer_image.save(img_buffer, format='PNG', optimize=True)
+            return img_buffer.getvalue()
+
+        except Exception as e:
+            logger.error(f"Error generating raw layer preview for {layer_name}: {e}")
+            raise
+
+    return await loop.run_in_executor(None, _generate_raw_layer_preview)
 
 
 # Background processing functions

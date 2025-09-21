@@ -5,6 +5,7 @@ Tests for CLI module
 import unittest
 import tempfile
 import json
+import os
 from pathlib import Path
 from unittest.mock import Mock, patch, call
 from click.testing import CliRunner
@@ -75,7 +76,7 @@ class TestAnalyzeCommand(unittest.TestCase):
         mock_analyzer_class.return_value = mock_analyzer
 
         mock_analysis = {
-            "basic_info": {"width": 100, "height": 100},
+            "basic_info": {"width": 100, "height": 100, "total_layers": 5},
             "expression_analysis": [],
             "layer_groups": {}
         }
@@ -329,7 +330,10 @@ class TestCreateMappingCommand(unittest.TestCase):
     def test_create_mapping_default(self):
         """Test creating mapping template with default filename"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch('src.psd_extractor.cli.os.getcwd', return_value=temp_dir):
+            # Change to temp directory
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
                 result = self.runner.invoke(create_mapping)
 
                 self.assertEqual(result.exit_code, 0)
@@ -338,10 +342,12 @@ class TestCreateMappingCommand(unittest.TestCase):
                 # Check that file was created
                 mapping_file = Path(temp_dir) / "expression_mapping.json"
                 self.assertTrue(mapping_file.exists())
+            finally:
+                os.chdir(old_cwd)
 
-                # Check file content
-                with open(mapping_file) as f:
-                    mapping_data = json.load(f)
+            # Check file content
+            with open(mapping_file) as f:
+                mapping_data = json.load(f)
 
                 self.assertIn("closed", mapping_data)
                 self.assertIn("small", mapping_data)

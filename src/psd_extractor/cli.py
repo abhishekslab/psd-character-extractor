@@ -6,6 +6,7 @@ Provides command-line tools for analyzing and extracting characters from PSD fil
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional

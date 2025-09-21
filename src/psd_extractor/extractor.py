@@ -75,6 +75,97 @@ class CharacterExtractor:
         expressions = self.analyzer.find_expression_layers()
         return [expr["name"] for expr in expressions]
 
+    def get_all_components(self) -> Dict[str, List[Dict[str, any]]]:
+        """
+        Get all character components organized by category.
+
+        Returns:
+            Dictionary mapping component categories to lists of component details
+        """
+        return self.analyzer.find_all_components()
+
+    def get_extractable_components(self) -> List[Dict[str, any]]:
+        """
+        Get all components that can be individually extracted.
+
+        Returns:
+            List of extractable component details
+        """
+        return self.analyzer.get_extractable_components()
+
+    def get_components_by_category(self, category: str) -> List[Dict[str, any]]:
+        """
+        Get all components in a specific category.
+
+        Args:
+            category: Component category to filter by
+
+        Returns:
+            List of components in the specified category
+        """
+        return self.analyzer.get_components_by_category(category)
+
+    def get_raw_layers(self) -> List[Dict[str, any]]:
+        """
+        Get all PSD layers as raw list without classification.
+
+        Returns:
+            List of raw layer information
+        """
+        return self.analyzer.get_raw_layers()
+
+    def extract_raw_layer(self, layer_name: str) -> Optional[any]:
+        """
+        Extract a single layer in complete isolation (no other layers visible).
+
+        Args:
+            layer_name: Name of the layer to extract
+
+        Returns:
+            PIL Image of the isolated layer, or None if extraction fails
+        """
+        if not self.psd:
+            raise ValueError("PSD file not loaded")
+
+        try:
+            # Find the target layer
+            target_layer = self.analyzer.get_layer_by_name(layer_name)
+            if not target_layer:
+                logger.error(f"Layer '{layer_name}' not found")
+                return None
+
+            # Save original visibility states
+            original_visibility = {}
+            all_layers = list(self.psd.descendants())
+
+            for layer in all_layers:
+                if hasattr(layer, 'visible'):
+                    original_visibility[layer.name] = layer.visible
+
+            try:
+                # Hide ALL layers first
+                for layer in all_layers:
+                    if hasattr(layer, 'visible'):
+                        layer.visible = False
+
+                # Show ONLY the target layer - no context, no base layers
+                target_layer.visible = True
+
+                # Composite the image with only this layer visible
+                composite_image = self.psd.composite()
+                logger.info(f"Successfully extracted raw layer: {layer_name}")
+                return composite_image
+
+            finally:
+                # Restore original visibility states
+                for layer in all_layers:
+                    if hasattr(layer, 'visible') and layer.name in original_visibility:
+                        layer.visible = original_visibility[layer.name]
+
+        except Exception as e:
+            logger.error(f"Failed to extract raw layer '{layer_name}': {e}")
+            return None
+
     def extract_expression(self, expression_name: str) -> Optional[any]:
         """
         Extract a single expression from the PSD.
@@ -122,6 +213,76 @@ class CharacterExtractor:
 
         except Exception as e:
             logger.error(f"Failed to extract expression '{expression_name}': {e}")
+            return None
+
+    def extract_component(self, component_name: str) -> Optional[any]:
+        """
+        Extract a single component from the PSD.
+
+        Args:
+            component_name: Name of the component layer to extract
+
+        Returns:
+            PIL Image of the extracted component, or None if extraction fails
+        """
+        if not self.psd:
+            raise ValueError("PSD file not loaded")
+
+        try:
+            # Find the target component
+            target_component = self.analyzer.get_layer_by_name(component_name)
+            if not target_component:
+                logger.error(f"Component '{component_name}' not found")
+                return None
+
+            # Save original visibility states
+            original_visibility = {}
+            all_layers = list(self.psd.descendants())
+
+            for layer in all_layers:
+                if hasattr(layer, 'visible'):
+                    original_visibility[layer.name] = layer.visible
+
+            try:
+                # Hide all layers first
+                for layer in all_layers:
+                    if hasattr(layer, 'visible'):
+                        layer.visible = False
+
+                # Show only the target component
+                target_component.visible = True
+
+                # For component extraction, we might need to show related base layers
+                # Show body/base layers if extracting clothing/accessories
+                extractable_components = self.get_extractable_components()
+                target_category = None
+
+                for comp in extractable_components:
+                    if comp["name"] == component_name:
+                        target_category = comp["category"]
+                        break
+
+                # Show base layers for proper context
+                if target_category in ["clothing", "accessories", "shoes", "bottom"]:
+                    for layer in all_layers:
+                        if hasattr(layer, 'visible') and hasattr(layer, 'name'):
+                            layer_name_lower = layer.name.lower()
+                            if any(keyword in layer_name_lower for keyword in ["body", "base", "skin"]):
+                                layer.visible = True
+
+                # Composite the image
+                composite_image = self.psd.composite()
+                logger.info(f"Successfully extracted component: {component_name}")
+                return composite_image
+
+            finally:
+                # Restore original visibility states
+                for layer in all_layers:
+                    if hasattr(layer, 'visible') and layer.name in original_visibility:
+                        layer.visible = original_visibility[layer.name]
+
+        except Exception as e:
+            logger.error(f"Failed to extract component '{component_name}': {e}")
             return None
 
     def extract_expressions(
@@ -193,6 +354,58 @@ class CharacterExtractor:
             f"Extracted {len(extracted)}/{len(available_expressions)} available expressions"
         )
         return extracted
+
+    def extract_components_by_category(self, category: str) -> Dict[str, any]:
+        """
+        Extract all components in a specific category.
+
+        Args:
+            category: Component category to extract
+
+        Returns:
+            Dictionary mapping component names to PIL Images
+        """
+        components = self.get_components_by_category(category)
+        extracted = {}
+
+        for component in components:
+            if component["type"] == "LAYER":  # Only extract individual layers
+                component_name = component["name"]
+                image = self.extract_component(component_name)
+                if image is not None:
+                    extracted[component_name] = image
+
+        logger.info(
+            f"Extracted {len(extracted)}/{len(components)} components from category '{category}'"
+        )
+        return extracted
+
+    def extract_all_components(self) -> Dict[str, Dict[str, any]]:
+        """
+        Extract all available components organized by category.
+
+        Returns:
+            Dictionary mapping categories to dictionaries of component names and PIL Images
+        """
+        all_components = self.get_all_components()
+        extracted_by_category = {}
+
+        for category, components in all_components.items():
+            category_extracted = {}
+
+            for component in components:
+                if component["type"] == "LAYER":  # Only extract individual layers
+                    component_name = component["name"]
+                    image = self.extract_component(component_name)
+                    if image is not None:
+                        category_extracted[component_name] = image
+
+            if category_extracted:  # Only include categories with successful extractions
+                extracted_by_category[category] = category_extracted
+
+        total_extracted = sum(len(category_dict) for category_dict in extracted_by_category.values())
+        logger.info(f"Extracted {total_extracted} components across {len(extracted_by_category)} categories")
+        return extracted_by_category
 
     def save_expressions(
         self,
@@ -271,6 +484,8 @@ class CharacterExtractor:
         """
         basic_info = self.analyzer.get_basic_info()
         available_expressions = self.get_available_expressions()
+        all_components = self.get_all_components()
+        extractable_components = self.get_extractable_components()
 
         # Check which expressions can be mapped
         mappable_states = {}
@@ -281,10 +496,32 @@ class CharacterExtractor:
             if found_expressions:
                 mappable_states[state] = found_expressions
 
+        # Component statistics
+        component_stats = {}
+        for category, components in all_components.items():
+            extractable_count = len([c for c in components if c["type"] == "LAYER"])
+            if extractable_count > 0:
+                component_stats[category] = {
+                    "total": len(components),
+                    "extractable": extractable_count,
+                    "components": [c["name"] for c in components if c["type"] == "LAYER"]
+                }
+
         return {
             "psd_info": basic_info,
             "available_expressions": available_expressions,
             "mappable_lip_sync_states": mappable_states,
-            "total_extractable": len(mappable_states),
+            "total_extractable_expressions": len(mappable_states),
             "expression_mapping": self.expression_mapping,
+            "all_components": all_components,
+            "component_statistics": component_stats,
+            "total_extractable_components": len(extractable_components),
+            "extractable_components": [
+                {
+                    "name": comp["name"],
+                    "category": comp["category"],
+                    "dimensions": comp["dimensions"]
+                }
+                for comp in extractable_components
+            ]
         }

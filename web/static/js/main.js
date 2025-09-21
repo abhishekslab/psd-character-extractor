@@ -9,6 +9,13 @@ class PSDCharacterExtractor {
         this.currentMapping = {};
         this.availableExpressions = [];
         this.mappingSuggestions = {};
+        this.allComponents = {};
+        this.extractableComponents = [];
+        this.currentComponentCategory = 'expression';
+        this.selectedComponents = new Set();
+        this.isLegacyMode = false;
+        this.rawLayers = [];
+        this.isRawLayersMode = false;
 
         this.initializeElements();
         this.attachEventListeners();
@@ -37,7 +44,14 @@ class PSDCharacterExtractor {
         this.previewLoading = document.getElementById('preview-loading');
         this.previewError = document.getElementById('preview-error');
 
-        // Mapping elements
+        // Component management elements
+        this.componentTabs = document.getElementById('component-tabs');
+        this.componentBrowserContent = document.getElementById('component-browser-content');
+        this.toggleLegacyModeButton = document.getElementById('toggle-legacy-mode');
+        this.extractAllComponentsCheckbox = document.getElementById('extract-all-components');
+        this.extractExpressionsOnlyCheckbox = document.getElementById('extract-expressions-only');
+
+        // Mapping elements (legacy)
         this.availableExpressionsContainer = document.getElementById('available-expressions');
         this.resetMappingButton = document.getElementById('reset-mapping');
         this.startExtractionButton = document.getElementById('start-extraction');
@@ -76,7 +90,12 @@ class PSDCharacterExtractor {
         this.uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
         this.uploadArea.addEventListener('drop', (e) => this.handleFileDrop(e));
 
-        // Mapping events
+        // Component management events
+        this.toggleLegacyModeButton.addEventListener('click', () => this.toggleLegacyMode());
+        this.extractAllComponentsCheckbox.addEventListener('change', (e) => this.handleExtractionModeChange(e));
+        this.extractExpressionsOnlyCheckbox.addEventListener('change', (e) => this.handleExtractionModeChange(e));
+
+        // Mapping events (legacy)
         this.resetMappingButton.addEventListener('click', () => this.resetMapping());
         this.startExtractionButton.addEventListener('click', () => this.startExtraction());
 
@@ -234,9 +253,12 @@ class PSDCharacterExtractor {
             this.availableExpressions = analysis.available_expressions;
             this.mappingSuggestions = analysis.mapping_suggestions;
             this.currentMapping = { ...analysis.current_mapping };
+            this.allComponents = analysis.all_components || {};
+            this.extractableComponents = analysis.extractable_components || [];
 
             this.displayAnalysisResults(analysis.psd_info);
-            this.displayExpressionMapping();
+            this.displayComponentManagement();
+            this.loadRawLayers(); // Load raw layers in parallel
             this.showSection('mapping');
             this.hideProgress();
 
@@ -307,7 +329,391 @@ class PSDCharacterExtractor {
         }
     }
 
-    // Expression Mapping
+    // Component Management
+    displayComponentManagement() {
+        // Show component interface by default, hide legacy
+        this.showComponentInterface();
+        this.displayComponentTabs();
+        this.displayComponentGrid(this.currentComponentCategory);
+    }
+
+    showComponentInterface() {
+        const componentBrowser = document.querySelector('.component-browser');
+        const legacyPanel = document.querySelector('.legacy-panel');
+
+        if (componentBrowser) componentBrowser.style.display = 'block';
+        if (legacyPanel) legacyPanel.style.display = 'none';
+
+        this.isLegacyMode = false;
+        this.updateToggleButton();
+    }
+
+    showLegacyInterface() {
+        const componentBrowser = document.querySelector('.component-browser');
+        const legacyPanel = document.querySelector('.legacy-panel');
+
+        if (componentBrowser) componentBrowser.style.display = 'none';
+        if (legacyPanel) legacyPanel.style.display = 'block';
+
+        this.isLegacyMode = true;
+        this.updateToggleButton();
+        this.displayExpressionMapping();
+    }
+
+    updateToggleButton() {
+        if (this.toggleLegacyModeButton) {
+            const icon = this.toggleLegacyModeButton.querySelector('i');
+            const text = this.isLegacyMode ? 'Component Mode' : 'Expression Mode';
+
+            this.toggleLegacyModeButton.innerHTML = `<i class="fas fa-exchange-alt"></i> ${text}`;
+        }
+    }
+
+    displayComponentTabs() {
+        if (!this.componentTabs) return;
+
+        this.componentTabs.innerHTML = '';
+
+        // Get categories with components
+        const categoriesWithComponents = Object.keys(this.allComponents).filter(
+            category => this.allComponents[category] && this.allComponents[category].length > 0
+        );
+
+        // Ensure expressions is first if it exists
+        if (categoriesWithComponents.includes('expression')) {
+            categoriesWithComponents.sort((a, b) => {
+                if (a === 'expression') return -1;
+                if (b === 'expression') return 1;
+                return a.localeCompare(b);
+            });
+        }
+
+        categoriesWithComponents.forEach(category => {
+            const tab = document.createElement('button');
+            tab.className = `browser-tab ${category === this.currentComponentCategory ? 'active' : ''}`;
+            tab.textContent = this.formatCategoryName(category);
+            tab.dataset.category = category;
+
+            tab.addEventListener('click', () => {
+                this.switchComponentCategory(category);
+            });
+
+            this.componentTabs.appendChild(tab);
+        });
+
+        // Add Raw Layers tab
+        const rawLayersTab = document.createElement('button');
+        rawLayersTab.className = `browser-tab ${this.isRawLayersMode ? 'active' : ''}`;
+        rawLayersTab.textContent = 'Raw Layers';
+        rawLayersTab.dataset.category = 'raw';
+
+        rawLayersTab.addEventListener('click', () => {
+            this.switchToRawLayersMode();
+        });
+
+        this.componentTabs.appendChild(rawLayersTab);
+    }
+
+    switchComponentCategory(category) {
+        this.currentComponentCategory = category;
+        this.isRawLayersMode = false;
+
+        // Update tab states
+        document.querySelectorAll('.browser-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.category === category);
+        });
+
+        // Display components for this category
+        this.displayComponentGrid(category);
+    }
+
+    switchToRawLayersMode() {
+        this.isRawLayersMode = true;
+
+        // Update tab states
+        document.querySelectorAll('.browser-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.category === 'raw');
+        });
+
+        // Display raw layers
+        this.displayRawLayersGrid();
+    }
+
+    displayComponentGrid(category) {
+        if (!this.componentBrowserContent) return;
+
+        const components = this.allComponents[category] || [];
+
+        if (components.length === 0) {
+            this.componentBrowserContent.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                    <p>No components found in this category</p>
+                </div>
+            `;
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'component-grid';
+
+        components.forEach(component => {
+            const componentElement = this.createComponentElement(component, category);
+            grid.appendChild(componentElement);
+        });
+
+        this.componentBrowserContent.innerHTML = '';
+        this.componentBrowserContent.appendChild(grid);
+    }
+
+    createComponentElement(component, category) {
+        const element = document.createElement('div');
+        element.className = 'component-item';
+        element.dataset.componentName = component.name;
+        element.dataset.category = category;
+
+        // Create thumbnail
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'component-thumbnail loading';
+        thumbnail.innerHTML = '<i class="fas fa-image"></i>';
+
+        // Create content
+        const content = document.createElement('div');
+        content.className = 'component-content';
+
+        const name = document.createElement('div');
+        name.className = 'component-name';
+        name.textContent = component.name;
+        name.title = component.name; // Tooltip for long names
+
+        const categoryBadge = document.createElement('div');
+        categoryBadge.className = 'component-category';
+        categoryBadge.textContent = category;
+
+        content.appendChild(name);
+        content.appendChild(categoryBadge);
+
+        element.appendChild(thumbnail);
+        element.appendChild(content);
+
+        // Load component thumbnail
+        this.loadComponentThumbnail(thumbnail, component.name);
+
+        // Add click handler for selection
+        element.addEventListener('click', (e) => this.handleComponentClick(e, component.name));
+
+        // Add drag functionality if needed (for future enhancements)
+        element.draggable = true;
+        element.addEventListener('dragstart', (e) => this.handleComponentDragStart(e, component.name));
+
+        return element;
+    }
+
+    async loadComponentThumbnail(thumbnailElement, componentName) {
+        try {
+            const previewUrl = `/api/preview/${this.currentJobId}/component/${encodeURIComponent(componentName)}`;
+
+            const img = document.createElement('img');
+            img.alt = componentName;
+
+            img.onload = () => {
+                thumbnailElement.replaceWith(img);
+                img.className = 'component-thumbnail';
+            };
+
+            img.onerror = () => {
+                thumbnailElement.className = 'component-thumbnail loading error';
+                thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                thumbnailElement.title = 'Failed to load preview';
+            };
+
+            img.src = previewUrl;
+
+        } catch (error) {
+            console.error(`Error loading thumbnail for ${componentName}:`, error);
+            thumbnailElement.className = 'component-thumbnail loading error';
+            thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        }
+    }
+
+    handleComponentClick(e, componentName) {
+        const element = e.currentTarget;
+
+        // Toggle selection
+        if (this.selectedComponents.has(componentName)) {
+            this.selectedComponents.delete(componentName);
+            element.classList.remove('selected');
+        } else {
+            this.selectedComponents.add(componentName);
+            element.classList.add('selected');
+        }
+
+        this.updateSelectionInfo();
+    }
+
+    handleComponentDragStart(e, componentName) {
+        e.dataTransfer.setData('text/plain', componentName);
+        e.currentTarget.classList.add('dragging');
+    }
+
+    updateSelectionInfo() {
+        // Could add selection counter or actions based on selected components
+        console.log('Selected components:', Array.from(this.selectedComponents));
+    }
+
+    formatCategoryName(category) {
+        return category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
+    }
+
+    toggleLegacyMode() {
+        if (this.isLegacyMode) {
+            this.showComponentInterface();
+        } else {
+            this.showLegacyInterface();
+        }
+    }
+
+    handleExtractionModeChange(e) {
+        const isAllComponents = e.target.id === 'extract-all-components';
+        const isExpressionsOnly = e.target.id === 'extract-expressions-only';
+
+        if (e.target.checked) {
+            if (isAllComponents) {
+                this.extractExpressionsOnlyCheckbox.checked = false;
+            } else if (isExpressionsOnly) {
+                this.extractAllComponentsCheckbox.checked = false;
+            }
+        }
+    }
+
+    // Raw Layers Management
+    async loadRawLayers() {
+        try {
+            const response = await fetch(`/api/raw-layers/${this.currentJobId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.rawLayers = data.raw_layers || [];
+            console.log('Raw layers loaded:', this.rawLayers.length);
+
+        } catch (error) {
+            console.error('Failed to load raw layers:', error);
+            this.showStatusMessage(`Failed to load raw layers: ${error.message}`, 'error');
+        }
+    }
+
+    displayRawLayersGrid() {
+        if (!this.componentBrowserContent) return;
+
+        if (this.rawLayers.length === 0) {
+            this.componentBrowserContent.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                    <p>Loading raw layers...</p>
+                </div>
+            `;
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'component-grid';
+
+        this.rawLayers.forEach(layer => {
+            // Only show actual layers, not groups
+            if (layer.type === 'LAYER') {
+                const layerElement = this.createRawLayerElement(layer);
+                grid.appendChild(layerElement);
+            }
+        });
+
+        this.componentBrowserContent.innerHTML = '';
+        this.componentBrowserContent.appendChild(grid);
+    }
+
+    createRawLayerElement(layer) {
+        const element = document.createElement('div');
+        element.className = 'component-item';
+        element.dataset.layerName = layer.name;
+        element.dataset.category = 'raw';
+
+        // Create thumbnail
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'component-thumbnail loading';
+        thumbnail.innerHTML = '<i class="fas fa-layer-group"></i>';
+
+        // Create content
+        const content = document.createElement('div');
+        content.className = 'component-content';
+
+        const name = document.createElement('div');
+        name.className = 'component-name';
+        name.textContent = layer.name;
+        name.title = layer.name; // Tooltip for long names
+
+        const categoryBadge = document.createElement('div');
+        categoryBadge.className = 'component-category';
+        categoryBadge.textContent = 'raw layer';
+
+        const dimensions = document.createElement('div');
+        dimensions.className = 'component-dimensions';
+        dimensions.style.fontSize = '0.7rem';
+        dimensions.style.color = 'var(--text-muted)';
+        if (layer.width && layer.height) {
+            dimensions.textContent = `${layer.width}×${layer.height}`;
+        }
+
+        content.appendChild(name);
+        content.appendChild(categoryBadge);
+        if (dimensions.textContent) {
+            content.appendChild(dimensions);
+        }
+
+        element.appendChild(thumbnail);
+        element.appendChild(content);
+
+        // Load raw layer thumbnail
+        this.loadRawLayerThumbnail(thumbnail, layer.name);
+
+        // Add click handler for selection
+        element.addEventListener('click', (e) => this.handleComponentClick(e, layer.name));
+
+        return element;
+    }
+
+    async loadRawLayerThumbnail(thumbnailElement, layerName) {
+        try {
+            // Use the raw-preview endpoint for isolated layer previews
+            const previewUrl = `/api/raw-preview/${this.currentJobId}/${encodeURIComponent(layerName)}`;
+
+            const img = document.createElement('img');
+            img.alt = layerName;
+
+            img.onload = () => {
+                thumbnailElement.innerHTML = ''; // Clear loading content
+                thumbnailElement.appendChild(img);
+                thumbnailElement.className = 'component-thumbnail';
+                console.log(`Raw layer thumbnail loaded: ${layerName}`);
+            };
+
+            img.onerror = () => {
+                thumbnailElement.className = 'component-thumbnail loading error';
+                thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                thumbnailElement.title = 'Failed to load raw preview';
+                console.error(`Failed to load raw thumbnail for: ${layerName}`);
+            };
+
+            img.src = previewUrl;
+
+        } catch (error) {
+            console.error(`Error loading raw layer thumbnail for ${layerName}:`, error);
+            thumbnailElement.className = 'component-thumbnail loading error';
+            thumbnailElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        }
+    }
+
+    // Expression Mapping (Legacy)
     displayExpressionMapping() {
         // Clear existing content
         this.availableExpressionsContainer.innerHTML = '';

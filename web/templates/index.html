@@ -79,16 +79,29 @@
                 </div>
             </section>
 
-            <!-- Step 3: Expression Mapping -->
+            <!-- Step 3: Component Management -->
             <section id="mapping-section" class="step-section" style="display: none;">
                 <div class="step-header">
-                    <h2><span class="step-number">3</span> Map Expressions to Lip Sync States</h2>
-                    <p>Drag expressions to the appropriate lip sync categories</p>
+                    <h2><span class="step-number">3</span> Organize Character Components</h2>
+                    <p>Browse and organize all character components by category</p>
                 </div>
 
-                <div class="mapping-container">
-                    <!-- Available Expressions -->
-                    <div class="expressions-panel">
+                <div class="component-management">
+                    <!-- Component Browser -->
+                    <div class="component-browser">
+                        <div class="browser-header">
+                            <h3>Character Components</h3>
+                            <div class="browser-tabs" id="component-tabs">
+                                <!-- Component category tabs will be populated here -->
+                            </div>
+                        </div>
+                        <div class="browser-content" id="component-browser-content">
+                            <!-- Component items will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Expression Mapping (legacy) -->
+                    <div class="expressions-panel legacy-panel" style="display: none;">
                         <h3>Available Expressions</h3>
                         <div class="expressions-list" id="available-expressions">
                             <!-- Expression items will be populated here -->
@@ -141,13 +154,28 @@
                             </div>
                         </div>
 
-                        <div class="mapping-actions">
-                            <button class="btn btn-secondary" id="reset-mapping">
-                                <i class="fas fa-undo"></i> Reset to Suggestions
-                            </button>
-                            <button class="btn btn-primary" id="start-extraction">
-                                <i class="fas fa-play"></i> Start Extraction
-                            </button>
+                        <div class="component-actions">
+                            <div class="action-buttons">
+                                <button class="btn btn-secondary" id="toggle-legacy-mode">
+                                    <i class="fas fa-exchange-alt"></i> Expression Mode
+                                </button>
+                                <button class="btn btn-secondary" id="reset-mapping">
+                                    <i class="fas fa-undo"></i> Reset to Suggestions
+                                </button>
+                                <button class="btn btn-primary" id="start-extraction">
+                                    <i class="fas fa-play"></i> Extract Components
+                                </button>
+                            </div>
+                            <div class="extraction-options">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="extract-all-components" checked>
+                                    <span>Extract all components</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="extract-expressions-only">
+                                    <span>Extract expressions only (legacy)</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>

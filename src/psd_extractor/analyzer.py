@@ -74,6 +74,7 @@ class PSDAnalyzer:
             "layer_tree": layer_tree,
             "expression_analysis": self.find_expression_layers(),
             "layer_groups": self._find_layer_groups(),
+            "component_analysis": self.find_all_components(),
         }
 
     def _analyze_layer(self, layer, depth: int = 0) -> Dict[str, any]:
@@ -188,35 +189,118 @@ class PSDAnalyzer:
 
         return potential_expressions
 
-    def _find_layer_groups(self) -> Dict[str, List[str]]:
+    def find_all_components(self) -> Dict[str, List[Dict[str, any]]]:
         """
-        Find and categorize layer groups (hair, costume, accessories, etc.).
+        Find and categorize all character components with detailed information.
 
         Returns:
-            Dictionary mapping group types to layer names
+            Dictionary mapping component types to lists of component details
         """
         if not self.psd:
             raise ValueError("PSD file not loaded")
 
-        group_keywords = {
-            "hair": ["hair", "hairstyle", "wig"],
-            "costume": ["costume", "outfit", "clothes", "dress", "uniform"],
-            "accessories": ["accessories", "glasses", "hat", "jewelry"],
-            "expression": ["expression", "face", "emotion"],
-            "body": ["body", "base", "skin"],
-            "background": ["background", "bg", "backdrop"],
+        component_keywords = {
+            "hair": ["hair", "hairstyle", "wig", "bangs", "ponytail", "braid", "pigtail"],
+            "clothing": ["costume", "outfit", "clothes", "dress", "uniform", "shirt", "top", "jacket", "coat", "vest", "sweater"],
+            "bottom": ["pants", "skirt", "shorts", "trousers", "jeans", "leggings"],
+            "shoes": ["shoes", "boots", "sandals", "sneakers", "heels", "footwear"],
+            "accessories": ["accessories", "glasses", "hat", "cap", "crown", "jewelry", "necklace", "earrings", "bracelet", "ring", "bow", "ribbon"],
+            "expression": ["expression", "face", "emotion", "mouth", "smile", "happy", "sad", "angry", "neutral", "surprised", "shocked", "delighted", "smug", "annoyed", "sleepy", "laugh"],
+            "eyes": ["eyes", "eye", "wink", "blink", "eyelash", "eyebrow"],
+            "body": ["body", "base", "skin", "torso", "chest", "bust", "arms", "legs", "hands"],
+            "weapons": ["weapon", "sword", "gun", "staff", "wand", "shield", "bow", "knife"],
+            "effects": ["effect", "glow", "sparkle", "shadow", "highlight", "aura", "magic"],
+            "background": ["background", "bg", "backdrop", "scenery", "environment"],
+            "other": []  # Will contain uncategorized layers
         }
 
-        layer_groups = {group: [] for group in group_keywords.keys()}
+        components = {category: [] for category in component_keywords.keys()}
         all_layers = list(self.psd.descendants())
+        categorized_layers = set()
 
         for layer in all_layers:
-            layer_name_lower = layer.name.lower()
+            if not layer.name or not layer.name.strip():
+                continue
 
-            for group_type, keywords in group_keywords.items():
+            layer_name_lower = layer.name.lower()
+            categorized = False
+
+            # Try to categorize based on keywords
+            for category, keywords in component_keywords.items():
+                if category == "other":
+                    continue
+
                 if any(keyword in layer_name_lower for keyword in keywords):
-                    layer_groups[group_type].append(layer.name)
+                    component_info = self._get_component_info(layer)
+                    components[category].append(component_info)
+                    categorized_layers.add(layer.name)
+                    categorized = True
                     break
+
+            # Add uncategorized layers to "other"
+            if not categorized:
+                component_info = self._get_component_info(layer)
+                components["other"].append(component_info)
+
+        return components
+
+    def _get_component_info(self, layer) -> Dict[str, any]:
+        """
+        Extract detailed information about a layer component.
+
+        Args:
+            layer: PSD layer object
+
+        Returns:
+            Dictionary containing component details
+        """
+        component_info = {
+            "name": layer.name,
+            "visible": layer.visible,
+            "layer_object": layer,
+            "type": "GROUP" if hasattr(layer, "_layers") and layer._layers else "LAYER",
+        }
+
+        # Add dimension info if available
+        if hasattr(layer, "bbox") and component_info["type"] == "LAYER":
+            try:
+                bbox = layer.bbox
+                if bbox:
+                    component_info.update({
+                        "width": bbox[2] - bbox[0],
+                        "height": bbox[3] - bbox[1],
+                        "x": bbox[0],
+                        "y": bbox[1],
+                    })
+            except Exception:
+                pass
+
+        # Add children count for groups
+        if component_info["type"] == "GROUP":
+            try:
+                children_count = len(list(layer)) if hasattr(layer, "__iter__") else 0
+                component_info["children_count"] = children_count
+            except Exception:
+                component_info["children_count"] = 0
+
+        return component_info
+
+    def _find_layer_groups(self) -> Dict[str, List[str]]:
+        """
+        Find and categorize layer groups (hair, costume, accessories, etc.).
+
+        Note: This method is kept for backward compatibility.
+        Use find_all_components() for more detailed component information.
+
+        Returns:
+            Dictionary mapping group types to layer names
+        """
+        components = self.find_all_components()
+
+        # Convert detailed components back to simple name lists for compatibility
+        layer_groups = {}
+        for category, component_list in components.items():
+            layer_groups[category] = [comp["name"] for comp in component_list]
 
         return layer_groups
 
@@ -253,6 +337,93 @@ class PSDAnalyzer:
                 return group
 
         return None
+
+    def get_extractable_components(self) -> List[Dict[str, any]]:
+        """
+        Get all components that can be individually extracted.
+
+        Returns:
+            List of component dictionaries with extraction metadata
+        """
+        if not self.psd:
+            raise ValueError("PSD file not loaded")
+
+        extractable = []
+        all_components = self.find_all_components()
+
+        for category, components in all_components.items():
+            for component in components:
+                # Only include layers that are not groups and have meaningful content
+                if component["type"] == "LAYER" and component.get("width", 0) > 0 and component.get("height", 0) > 0:
+                    extractable_info = {
+                        "name": component["name"],
+                        "category": category,
+                        "visible": component["visible"],
+                        "dimensions": {
+                            "width": component.get("width", 0),
+                            "height": component.get("height", 0),
+                            "x": component.get("x", 0),
+                            "y": component.get("y", 0),
+                        },
+                        "layer_object": component["layer_object"],
+                    }
+                    extractable.append(extractable_info)
+
+        return extractable
+
+    def get_components_by_category(self, category: str) -> List[Dict[str, any]]:
+        """
+        Get all components in a specific category.
+
+        Args:
+            category: Component category to filter by
+
+        Returns:
+            List of components in the specified category
+        """
+        all_components = self.find_all_components()
+        return all_components.get(category, [])
+
+    def get_raw_layers(self) -> List[Dict[str, any]]:
+        """
+        Get all PSD layers as raw list without any classification or grouping.
+
+        Returns:
+            List of layer dictionaries with basic info only
+        """
+        if not self.psd:
+            raise ValueError("PSD file not loaded")
+
+        raw_layers = []
+        all_layers = list(self.psd.descendants())
+
+        for layer in all_layers:
+            if not layer.name or not layer.name.strip():
+                continue
+
+            layer_info = {
+                "name": layer.name,
+                "visible": layer.visible,
+                "type": "GROUP" if hasattr(layer, "_layers") and layer._layers else "LAYER",
+            }
+
+            # Add dimension info if available and it's a layer
+            if layer_info["type"] == "LAYER" and hasattr(layer, "bbox"):
+                try:
+                    bbox = layer.bbox
+                    if bbox:
+                        layer_info.update({
+                            "width": bbox[2] - bbox[0],
+                            "height": bbox[3] - bbox[1],
+                            "x": bbox[0],
+                            "y": bbox[1],
+                        })
+                except Exception:
+                    pass
+
+            raw_layers.append(layer_info)
+
+        return raw_layers
 
     def list_all_layers(self) -> List[str]:
         """

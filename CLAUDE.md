@@ -85,6 +85,23 @@ psd-create-mapping --output expressions.json
 psd-list-expressions character.psd
 ```
 
+### Web Application
+```bash
+# Start web interface for interactive PSD processing
+python -c "
+from src.psd_extractor.web_api import app
+import uvicorn
+uvicorn.run(app, host='0.0.0.0', port=8001)
+"
+
+# Alternative: Start with custom host/port
+python -c "
+from src.psd_extractor.web_api import app
+import uvicorn
+uvicorn.run(app, host='localhost', port=8000)
+"
+```
+
 ## Architecture Overview
 
 ### Core Components
